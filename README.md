@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Real-time Next.js 14 Messenger
 
-## Getting Started
+Повноцінний месенджер реального часу, побудований на Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Pusher та Upstash Redis.
 
-First, run the development server:
+## 🚀 Як запустити локально
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. **Клонуйте або відкрийте проєкт**:
+   ```bash
+   git clone <your-repo>
+   cd next-messenger
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Встановіть залежності**:
+   ```bash
+   npm install
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Налаштуйте змінні середовища**:
+   Скопіюйте файл `.env.example` у `.env.local`:
+   ```bash
+   cp .env.example .env.local
+   ```
+   Відкрийте `.env.local` і заповніть свої ключі від Pusher та Upstash Redis.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. **Запустіть сервер розробки**:
+   ```bash
+   npm run dev
+   ```
+   Відкрийте [http://localhost:3000](http://localhost:3000) у браузері.
 
-## Learn More
+## ☁️ Деплой на Vercel
 
-To learn more about Next.js, take a look at the following resources:
+Найпростіший спосіб задеплоїти — використовувати Vercel CLI або підключити GitHub репозиторій до Vercel Dashboard.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Через Vercel CLI:
+1. Встановіть Vercel CLI, якщо ще не маєте:
+   ```bash
+   npm i -g vercel
+   ```
+2. Запустіть деплой (просто виконуйте інструкції в терміналі):
+   ```bash
+   vercel
+   ```
+3. Для деплою на продакшн:
+   ```bash
+   vercel --prod
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+> **Важливо:** Не забудьте додати всі змінні з `.env.local` у налаштування проєкту Vercel (Settings -> Environment Variables) перед продакшн-деплоєм!
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Технологічний стек
+- **Фронтенд**: Next.js 14, React, Tailwind CSS, shadcn/ui
+- **Бекенд**: Next.js API Routes (Serverless)
+- **База даних (Історія)**: Upstash Redis
+- **Реал-тайм**: Pusher Channels
