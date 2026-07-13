@@ -100,8 +100,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   if (!username) return null;
 
   return (
-    <div className="w-full max-w-7xl flex h-[100dvh] md:h-[calc(100dvh-4rem)] md:my-8 mx-auto gap-4">
-      <div className="flex-1 flex flex-col h-full md:rounded-2xl md:border bg-zinc-950/60 sm:border-x border-zinc-800/50 shadow-2xl relative overflow-hidden animate-slide-up">
+    <div className="w-full max-w-7xl flex h-[100dvh] md:h-[calc(100dvh-4rem)] md:my-8 mx-auto md:gap-4">
+      <div className="flex-1 flex flex-col h-full md:rounded-2xl md:border bg-zinc-950/60 shadow-2xl relative overflow-hidden animate-slide-up">
         {/* Background ambient light */}
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
       
@@ -189,7 +189,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       </div>
 
       {/* Input Area */}
-      <footer className="p-3 pb-[env(safe-area-inset-bottom)] sm:p-6 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800/60 z-10">
+      <footer className="p-3 sm:p-6 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800/60 z-10" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
         <form onSubmit={handleSendMessage} className="w-full flex gap-2 sm:gap-4 max-w-4xl mx-auto items-center relative">
           <Input 
             value={inputText}

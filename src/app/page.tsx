@@ -137,7 +137,7 @@ export default function Home() {
       </Card>
 
       {username && (
-        <div className="w-full md:w-80 lg:w-96 h-[500px] md:h-[600px] relative z-10 flex-shrink-0 flex flex-col gap-4 animate-slide-up">
+        <div className="w-full md:w-80 lg:w-96 h-[400px] sm:h-[500px] md:h-[600px] relative z-10 flex-shrink-0 flex flex-col gap-4 animate-slide-up">
            <FriendList currentUser={username} />
            <Button variant="outline" onClick={() => router.push('/friends')} className="border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800">
              Керування друзями та запитами
