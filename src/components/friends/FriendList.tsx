@@ -68,7 +68,7 @@ export function FriendList({ currentUser }: { currentUser: string }) {
 
   const startChat = (username: string) => {
     const sorted = [currentUser, username].sort();
-    router.push(`/chat/private:${sorted.join(':')}`);
+    router.push(`/chat/private-${sorted.join('-')}`);
   };
 
   return (

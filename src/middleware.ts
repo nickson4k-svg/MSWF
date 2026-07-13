@@ -19,7 +19,7 @@ export async function middleware(request: NextRequest) {
       const currentUser = payload.payload.sub as string;
 
       // Check access for private rooms
-      const match = request.nextUrl.pathname.match(/^\/chat\/private:(.+):(.+)$/);
+      const match = request.nextUrl.pathname.match(/^\/chat\/private-(.+)-(.+)$/);
       if (match) {
         const user1 = match[1];
         const user2 = match[2];

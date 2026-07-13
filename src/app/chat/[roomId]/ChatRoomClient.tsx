@@ -62,8 +62,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     }));
   });
 
-  const targetUsername = roomId.startsWith('private:') 
-    ? roomId.replace('private:', '').split(':').find(u => u !== username) 
+  const targetUsername = roomId.startsWith('private-') 
+    ? roomId.replace('private-', '').split('-').find(u => u !== username) 
     : undefined;
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -189,8 +189,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           <div className="flex flex-col">
             <h1 className="font-bold text-lg leading-tight text-zinc-100 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-slow"></span>
-              {roomId.startsWith('private:') 
-                ? `Приватний чат з ${roomId.replace('private:', '').split(':').find(u => u !== username)}`
+              {roomId.startsWith('private-') 
+                ? `Приватний чат з ${roomId.replace('private-', '').split('-').find(u => u !== username)}`
                 : `Кімната ${roomId}`
               }
             </h1>
@@ -199,7 +199,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             </p>
           </div>
         </div>
-        {!roomId.startsWith('private:') && (
+        {!roomId.startsWith('private-') && (
           <Button 
             variant="outline" 
             size="sm" 

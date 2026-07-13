@@ -12,9 +12,9 @@ export interface FriendWithStatus extends FriendProfile {
   lastSeen?: string;
 }
 
-export function generatePrivateRoomId(username1: string, username2: string): string {
-  const sorted = [username1, username2].sort();
-  return `private:${sorted.join(':')}`;
+export function getPrivateRoomId(user1: string, user2: string) {
+  const sorted = [user1, user2].sort();
+  return `private-${sorted.join('-')}`;
 }
 
 export async function isFriend(username1: string, username2: string): Promise<boolean> {
