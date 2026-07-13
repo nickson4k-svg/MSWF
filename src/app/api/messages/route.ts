@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Pusher from 'pusher';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
+import { sanitizeChannelName } from '@/lib/pusher';
 
 export async function POST(req: Request) {
   try {
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
 
     try {
       // Trigger Pusher event
-      await pusherServer.trigger(`room-${roomId}`, 'incoming-message', message);
+      await pusherServer.trigger(`room-${sanitizeChannelName(roomId)}`, 'incoming-message', message);
     } catch (pusherErr) {
       console.warn('Pusher failed (missing keys?):', pusherErr);
     }

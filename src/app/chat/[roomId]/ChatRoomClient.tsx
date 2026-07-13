@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getPusherClient } from '@/lib/pusher';
+import { getPusherClient, sanitizeChannelName } from '@/lib/pusher';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Copy, ArrowLeft, CheckCircle2 } from 'lucide-react';
@@ -111,7 +111,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     const client = getPusherClient();
     if (!client) return;
 
-    const channelName = `room-${roomId}`;
+    const channelName = `room-${sanitizeChannelName(roomId)}`;
     const channel = client.subscribe(channelName);
 
     channel.bind('incoming-message', (newMessage: Message) => {
