@@ -2,11 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { pusherClient } from '@/lib/pusher';
+import { getPusherClient } from '@/lib/pusher';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Copy, ArrowLeft } from 'lucide-react';
+import { Send, Copy, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Message {
@@ -22,6 +21,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [messages, setMessages] = useState<Message[]>(initialHistory);
   const [inputText, setInputText] = useState('');
   const [username, setUsername] = useState('');
+  const [copied, setCopied] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,20 +34,21 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   }, [router]);
 
   useEffect(() => {
-    // Subscribe to pusher
+    const client = getPusherClient();
+    if (!client) return;
+
     const channelName = `room-${roomId}`;
-    const channel = pusherClient.subscribe(channelName);
+    const channel = client.subscribe(channelName);
 
     channel.bind('incoming-message', (newMessage: Message) => {
       setMessages((prev) => {
-        // Prevent duplicates
         if (prev.find(m => m.id === newMessage.id)) return prev;
         return [...prev, newMessage];
       });
     });
 
     return () => {
-      pusherClient.unsubscribe(channelName);
+      client.unsubscribe(channelName);
     };
   }, [roomId]);
 
@@ -62,7 +63,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     if (!inputText.trim() || !username) return;
 
     const currentText = inputText;
-    setInputText(''); // optimistic clear
+    setInputText('');
 
     try {
       await fetch('/api/messages', {
@@ -81,63 +82,110 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
   const copyLink = () => {
     navigator.clipboard.writeText(window.location.href);
-    alert('Посилання скопійовано!');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  if (!username) return null; // Wait for username load
+  if (!username) return null;
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-950 text-zinc-100 max-w-3xl mx-auto border-x border-zinc-800">
-      <header className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/')}>
-            <ArrowLeft className="w-5 h-5 text-zinc-400" />
+    <div className="w-full max-w-5xl flex flex-col h-[100dvh] md:h-[calc(100dvh-4rem)] md:my-8 md:rounded-2xl md:border mx-auto bg-zinc-950/60 sm:border-x border-zinc-800/50 shadow-2xl relative overflow-hidden">
+      {/* Background ambient light */}
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+      
+      {/* Header */}
+      <header className="flex items-center justify-between p-4 sm:px-6 border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-xl z-10">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => router.push('/')}
+            className="rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
           </Button>
-          <div>
-            <h1 className="font-bold text-lg leading-tight">Кімната: {roomId}</h1>
-            <p className="text-xs text-zinc-400">Ви увійшли як <span className="font-semibold text-blue-400">{username}</span></p>
+          <div className="flex flex-col">
+            <h1 className="font-bold text-lg leading-tight text-zinc-100 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-slow"></span>
+              Кімната {roomId}
+            </h1>
+            <p className="text-xs text-zinc-400 font-medium">
+              Ви увійшли як <span className="text-blue-400">{username}</span>
+            </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={copyLink} className="border-zinc-700 bg-zinc-800 text-zinc-200 hover:bg-zinc-700">
-          <Copy className="w-4 h-4 mr-2" />
-          Поділитися
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={copyLink} 
+          className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-full px-4 transition-all"
+        >
+          {copied ? (
+            <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" />
+          ) : (
+            <Copy className="w-4 h-4 mr-2" />
+          )}
+          {copied ? 'Скопійовано' : 'Поділитися'}
         </Button>
       </header>
 
-      <ScrollArea className="flex-1 p-4">
-        <div className="flex flex-col gap-4 pb-4">
-          {messages.length === 0 && (
-            <p className="text-center text-zinc-500 mt-10">Немає повідомлень. Почніть спілкування першим!</p>
-          )}
-          
-          {messages.map((msg) => {
-            const isMe = msg.sender === username;
-            return (
-              <div key={msg.id} className={`flex flex-col max-w-[75%] ${isMe ? 'self-end items-end' : 'self-start items-start'}`}>
-                <span className="text-[11px] text-zinc-500 mb-1 ml-1">{msg.sender}</span>
-                <div className={`px-4 py-2 rounded-2xl ${isMe ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-zinc-800 text-zinc-100 rounded-bl-sm'}`}>
-                  <p className="text-sm">{msg.text}</p>
-                </div>
-                <span className="text-[10px] text-zinc-600 mt-1 ml-1">
-                  {format(new Date(msg.timestamp), 'HH:mm')}
-                </span>
-              </div>
-            );
-          })}
-          <div ref={scrollRef} />
-        </div>
-      </ScrollArea>
+      {/* Chat Area */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scroll-smooth">
+        {messages.length === 0 && (
+          <div className="h-full flex flex-col items-center justify-center text-center space-y-4 animate-fade-in opacity-50">
+            <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+              <Send className="w-8 h-8 text-zinc-600" />
+            </div>
+            <p className="text-zinc-500 font-medium">Поки що тут тихо.<br/>Напишіть перше повідомлення!</p>
+          </div>
+        )}
+        
+        {messages.map((msg, idx) => {
+          const isMe = msg.sender === username;
+          const showSender = idx === 0 || messages[idx - 1].sender !== msg.sender;
 
-      <footer className="p-4 bg-zinc-900 border-t border-zinc-800">
-        <form onSubmit={handleSendMessage} className="flex gap-2">
+          return (
+            <div key={msg.id} className={`flex flex-col w-full animate-slide-up ${isMe ? 'items-end' : 'items-start'}`}>
+              {!isMe && showSender && (
+                <span className="text-[11px] font-medium text-zinc-500 mb-1.5 ml-2">{msg.sender}</span>
+              )}
+              
+              <div className="group relative flex items-end gap-2 max-w-[85%] sm:max-w-[70%]">
+                <div 
+                  className={`
+                    px-5 py-3 shadow-lg 
+                    ${isMe 
+                      ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl rounded-br-sm' 
+                      : 'bg-zinc-900 border border-zinc-800/80 text-zinc-100 rounded-2xl rounded-bl-sm'}
+                  `}
+                >
+                  <p className="text-[15px] leading-relaxed break-words">{msg.text}</p>
+                </div>
+              </div>
+              <span className={`text-[10px] font-medium text-zinc-600 mt-1.5 ${isMe ? 'mr-2' : 'ml-2'}`}>
+                {format(new Date(msg.timestamp), 'HH:mm')}
+              </span>
+            </div>
+          );
+        })}
+        <div ref={scrollRef} className="h-4" />
+      </div>
+
+      {/* Input Area */}
+      <footer className="p-3 pb-[env(safe-area-inset-bottom)] sm:p-6 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800/60 z-10">
+        <form onSubmit={handleSendMessage} className="w-full flex gap-2 sm:gap-4 max-w-4xl mx-auto items-center relative">
           <Input 
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Напишіть повідомлення..."
-            className="flex-1 bg-zinc-800 border-zinc-700 focus-visible:ring-blue-600"
+            className="flex-1 bg-zinc-900/80 border-zinc-700/50 text-zinc-100 h-12 sm:h-14 pl-4 sm:pl-5 pr-12 sm:pr-14 rounded-full focus-visible:ring-1 focus-visible:ring-blue-500/50 shadow-inner text-[14px] sm:text-[15px] placeholder:text-zinc-500"
           />
-          <Button type="submit" disabled={!inputText.trim()} className="bg-blue-600 hover:bg-blue-700 px-4">
-            <Send className="w-4 h-4" />
+          <Button 
+            type="submit" 
+            disabled={!inputText.trim()} 
+            className="absolute right-1 sm:right-1.5 top-1 bottom-1 sm:top-1.5 sm:bottom-1.5 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-50 disabled:hover:bg-blue-600 flex items-center justify-center p-0 shadow-md"
+          >
+            <Send className="w-4 h-4 sm:w-5 sm:h-5 ml-1" />
           </Button>
         </form>
       </footer>

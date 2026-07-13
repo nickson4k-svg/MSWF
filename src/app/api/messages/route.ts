@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { redis } from '@/lib/redis';
 import Pusher from 'pusher';
 
 export async function POST(req: Request) {
@@ -26,19 +25,12 @@ export async function POST(req: Request) {
       timestamp: Date.now(),
     };
 
-    const redisKey = `chat:room:${roomId}:messages`;
-    
-    // Save to Redis list
-    await redis.rpush(redisKey, JSON.stringify(message));
-    
-    // Keep only last 100 messages
-    await redis.ltrim(redisKey, -100, -1);
-    
-    // Set expiration to 30 days
-    await redis.expire(redisKey, 60 * 60 * 24 * 30);
-
-    // Trigger Pusher event
-    await pusherServer.trigger(`room-${roomId}`, 'incoming-message', message);
+    try {
+      // Trigger Pusher event
+      await pusherServer.trigger(`room-${roomId}`, 'incoming-message', message);
+    } catch (pusherErr) {
+      console.warn('Pusher failed (missing keys?):', pusherErr);
+    }
 
     return NextResponse.json(message);
   } catch (error) {
