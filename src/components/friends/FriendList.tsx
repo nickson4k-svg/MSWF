@@ -111,7 +111,12 @@ export function FriendList({ currentUser }: { currentUser: string }) {
           ))
         )}
       </div>
-      
+      <div className="p-2 border-t border-zinc-800/50 bg-zinc-950/30">
+        <Button variant="ghost" onClick={() => router.push('/friends')} className="w-full text-xs text-zinc-400 hover:text-white hover:bg-zinc-800/50">
+          Керування друзями та запитами
+        </Button>
+      </div>
+
       {showAddModal && <AddFriendModal onClose={() => setShowAddModal(false)} />}
     </div>
   );

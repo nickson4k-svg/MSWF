@@ -4,6 +4,8 @@ import { verifyToken } from '@/lib/auth';
 import { redis } from '@/lib/redis';
 import { FriendProfile, FriendWithStatus } from '@/lib/friends';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
   try {
     const cookieStore = await cookies();
