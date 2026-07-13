@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Sparkles, MessageSquare, LogOut, LogIn, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { FriendList } from '@/components/friends/FriendList';
+import { InstallAppButton } from '@/components/InstallAppButton';
 
 export default function Home() {
   const router = useRouter();
@@ -55,6 +56,7 @@ export default function Home() {
 
       <Card className="w-full max-w-md bg-zinc-900/50 backdrop-blur-xl border-zinc-800/50 shadow-2xl animate-slide-up relative z-10 self-center">
         <CardHeader className="text-center space-y-4 pb-8 relative">
+          <InstallAppButton />
           {username && (
             <Button 
               variant="ghost" 
