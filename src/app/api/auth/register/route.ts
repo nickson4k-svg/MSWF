@@ -32,6 +32,20 @@ export async function POST(req: Request) {
     const pwdHash = await hashPassword(password);
     const token = await generateToken(username, pwdHash);
 
+    const { redis } = await import('@/lib/redis');
+    
+    // Create profile in Redis if it doesn't exist
+    const profileKey = `profile:${username}`;
+    const exists = await redis.exists(profileKey);
+    if (!exists) {
+      await redis.hset(profileKey, {
+        username,
+        displayName: username,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+        createdAt: new Date().toISOString()
+      });
+    }
+
     const cookieStore = await cookies();
     cookieStore.set({
       name: 'auth_token',

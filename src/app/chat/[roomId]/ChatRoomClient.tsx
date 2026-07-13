@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Copy, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
-
+import { FriendList } from '@/components/friends/FriendList';
 interface Message {
   id: string;
   text: string;
@@ -26,10 +26,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let mounted = true;
     setIsMounted(true);
     fetch('/api/auth/me')
       .then(res => res.json())
       .then(data => {
+        if (!mounted) return;
         if (data.username) {
           setUsername(data.username);
         } else {
@@ -37,8 +39,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         }
       })
       .catch(() => {
-        router.push('/login');
+        if (mounted) router.push('/login');
       });
+    return () => { mounted = false; };
   }, [router]);
 
   useEffect(() => {
@@ -97,9 +100,10 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   if (!username) return null;
 
   return (
-    <div className="w-full max-w-5xl flex flex-col h-[100dvh] md:h-[calc(100dvh-4rem)] md:my-8 md:rounded-2xl md:border mx-auto bg-zinc-950/60 sm:border-x border-zinc-800/50 shadow-2xl relative overflow-hidden">
-      {/* Background ambient light */}
-      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+    <div className="w-full max-w-7xl flex h-[100dvh] md:h-[calc(100dvh-4rem)] md:my-8 mx-auto gap-4">
+      <div className="flex-1 flex flex-col h-full md:rounded-2xl md:border bg-zinc-950/60 sm:border-x border-zinc-800/50 shadow-2xl relative overflow-hidden animate-slide-up">
+        {/* Background ambient light */}
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
       
       {/* Header */}
       <header className="flex items-center justify-between p-4 sm:px-6 border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-xl z-10">
@@ -115,26 +119,31 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           <div className="flex flex-col">
             <h1 className="font-bold text-lg leading-tight text-zinc-100 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-slow"></span>
-              Кімната {roomId}
+              {roomId.startsWith('private:') 
+                ? `Приватний чат з ${roomId.replace('private:', '').split(':').find(u => u !== username)}`
+                : `Кімната ${roomId}`
+              }
             </h1>
             <p className="text-xs text-zinc-400 font-medium">
               Ви увійшли як <span className="text-blue-400">{username}</span>
             </p>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={copyLink} 
-          className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-full px-4 transition-all"
-        >
-          {copied ? (
-            <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" />
-          ) : (
-            <Copy className="w-4 h-4 mr-2" />
-          )}
-          {copied ? 'Скопійовано' : 'Поділитися'}
-        </Button>
+        {!roomId.startsWith('private:') && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={copyLink} 
+            className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-full px-4 transition-all"
+          >
+            {copied ? (
+              <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" />
+            ) : (
+              <Copy className="w-4 h-4 mr-2" />
+            )}
+            {copied ? 'Скопійовано' : 'Поділитися'}
+          </Button>
+        )}
       </header>
 
       {/* Chat Area */}
@@ -197,6 +206,11 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           </Button>
         </form>
       </footer>
+      </div>
+
+      <div className="hidden md:flex flex-col w-80 h-full flex-shrink-0 animate-slide-up">
+        <FriendList currentUser={username} />
+      </div>
     </div>
   );
 }

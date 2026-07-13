@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, MessageSquare, LogOut, LogIn, UserPlus } from 'lucide-react';
 import Link from 'next/link';
+import { FriendList } from '@/components/friends/FriendList';
 
 export default function Home() {
   const router = useRouter();
@@ -15,13 +16,16 @@ export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
     setIsMounted(true);
     fetch('/api/auth/me')
       .then(res => res.json())
       .then(data => {
+        if (!mounted) return;
         if (data.username) setUsername(data.username);
       })
       .catch(() => {});
+    return () => { mounted = false; };
   }, []);
 
   const handleLogout = async () => {
@@ -44,12 +48,12 @@ export default function Home() {
   if (!isMounted) return null;
 
   return (
-    <main className="min-h-[100dvh] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden bg-zinc-950 text-zinc-100">
+    <main className="min-h-[100dvh] flex flex-col md:flex-row items-center justify-center p-4 sm:p-6 gap-6 relative overflow-hidden bg-zinc-950 text-zinc-100">
       {/* Premium Background Effects */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[120px] pointer-events-none" />
 
-      <Card className="w-full max-w-md bg-zinc-900/50 backdrop-blur-xl border-zinc-800/50 shadow-2xl animate-slide-up relative z-10">
+      <Card className="w-full max-w-md bg-zinc-900/50 backdrop-blur-xl border-zinc-800/50 shadow-2xl animate-slide-up relative z-10 self-center">
         <CardHeader className="text-center space-y-4 pb-8 relative">
           {username && (
             <Button 
@@ -131,6 +135,15 @@ export default function Home() {
           )}
         </CardContent>
       </Card>
+
+      {username && (
+        <div className="w-full md:w-80 lg:w-96 h-[500px] md:h-[600px] relative z-10 flex-shrink-0 flex flex-col gap-4 animate-slide-up">
+           <FriendList currentUser={username} />
+           <Button variant="outline" onClick={() => router.push('/friends')} className="border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800">
+             Керування друзями та запитами
+           </Button>
+        </div>
+      )}
     </main>
   );
 }
