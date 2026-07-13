@@ -171,6 +171,21 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             <span className="text-emerald-400 font-bold text-xl bg-zinc-900/80 px-6 py-3 rounded-full shadow-2xl">Відпустіть файл для передачі</span>
           </div>
         )}
+        
+        <div className="hidden md:flex flex-col w-80 h-full flex-shrink-0 animate-slide-up space-y-4">
+          <div className="flex-1 min-h-0">
+            <FriendList currentUser={username} />
+          </div>
+          {targetUsername && (
+            <FileTransferSidebar 
+              transfers={transfers}
+              onCancelTransfer={cancelTransfer}
+              onSendFile={(f) => initiateTransfer(f, targetUsername, roomId)}
+              isFriendOnline={true}
+            />
+          )}
+        </div>
+
         <div className="flex-1 flex flex-col h-full md:rounded-2xl md:border bg-zinc-950/60 shadow-2xl relative overflow-hidden animate-slide-up">
         {/* Background ambient light */}
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
@@ -289,20 +304,6 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           </Button>
         </form>
       </footer>
-      </div>
-
-      <div className="hidden md:flex flex-col w-80 h-full flex-shrink-0 animate-slide-up space-y-4">
-        <div className="flex-1 min-h-0">
-          <FriendList currentUser={username} />
-        </div>
-        {targetUsername && (
-          <FileTransferSidebar 
-            transfers={transfers}
-            onCancelTransfer={cancelTransfer}
-            onSendFile={(f) => initiateTransfer(f, targetUsername, roomId)}
-            isFriendOnline={true}
-          />
-        )}
       </div>
     </div>
     </>
