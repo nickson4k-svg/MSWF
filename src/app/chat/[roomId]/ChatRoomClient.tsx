@@ -8,6 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Send, Copy, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { FriendList } from '@/components/friends/FriendList';
+import { useFileTransfer } from '@/hooks/useFileTransfer';
+import { FileTransferSidebar } from '@/components/chat/FileTransferSidebar';
+import { FileTransferModal } from '@/components/chat/FileTransferModal';
+import { FileMessage } from '@/components/chat/FileMessage';
 interface Message {
   id: string;
   text: string;
@@ -23,7 +27,66 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [username, setUsername] = useState('');
   const [copied, setCopied] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || !username) return;
+    try {
+      await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          roomId,
+          sender: username
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to send:', err);
+    }
+  };
+
+  const {
+    transfers,
+    pendingOffer,
+    initiateTransfer,
+    acceptOffer,
+    rejectOffer,
+    cancelTransfer
+  } = useFileTransfer(username, (meta) => {
+    sendMessage(JSON.stringify({
+      type: 'file-transfer-meta',
+      fileName: meta.fileName,
+      fileSize: meta.fileSize
+    }));
+  });
+
+  const targetUsername = roomId.startsWith('private:') 
+    ? roomId.replace('private:', '').split(':').find(u => u !== username) 
+    : undefined;
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!targetUsername) return;
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (!targetUsername) return;
+    
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      initiateTransfer(file, targetUsername, roomId);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -75,20 +138,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
     const currentText = inputText;
     setInputText('');
-
-    try {
-      await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: currentText,
-          roomId,
-          sender: username
-        }),
-      });
-    } catch (err) {
-      console.error('Failed to send:', err);
-    }
+    await sendMessage(currentText);
   };
 
   const copyLink = () => {
@@ -100,8 +150,28 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   if (!username) return null;
 
   return (
-    <div className="w-full max-w-7xl flex h-[100dvh] md:h-[calc(100dvh-4rem)] md:my-8 mx-auto md:gap-4">
-      <div className="flex-1 flex flex-col h-full md:rounded-2xl md:border bg-zinc-950/60 shadow-2xl relative overflow-hidden animate-slide-up">
+    <>
+      {pendingOffer && (
+        <FileTransferModal 
+          senderName={pendingOffer.sender}
+          fileName={pendingOffer.fileMeta.fileName}
+          fileSize={pendingOffer.fileMeta.fileSize}
+          onAccept={acceptOffer}
+          onReject={rejectOffer}
+        />
+      )}
+      <div 
+        className="w-full max-w-7xl flex h-[100dvh] md:h-[calc(100dvh-4rem)] md:my-8 mx-auto md:gap-4 relative"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDragging && targetUsername && (
+          <div className="absolute inset-0 z-50 bg-emerald-500/10 border-2 border-dashed border-emerald-500 rounded-2xl flex items-center justify-center pointer-events-none backdrop-blur-sm">
+            <span className="text-emerald-400 font-bold text-xl bg-zinc-900/80 px-6 py-3 rounded-full shadow-2xl">Відпустіть файл для передачі</span>
+          </div>
+        )}
+        <div className="flex-1 flex flex-col h-full md:rounded-2xl md:border bg-zinc-950/60 shadow-2xl relative overflow-hidden animate-slide-up">
         {/* Background ambient light */}
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
       
@@ -161,6 +231,15 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           const isMe = msg.sender === username;
           const showSender = idx === 0 || messages[idx - 1].sender !== msg.sender;
 
+          let isFileMeta = false;
+          let fileMetaData = null;
+          try {
+            if (msg.text.startsWith('{"type":"file-transfer-meta"')) {
+              isFileMeta = true;
+              fileMetaData = JSON.parse(msg.text);
+            }
+          } catch(e) {}
+
           return (
             <div key={msg.id} className={`flex flex-col w-full animate-slide-up ${isMe ? 'items-end' : 'items-start'}`}>
               {!isMe && showSender && (
@@ -168,16 +247,20 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
               )}
               
               <div className="group relative flex items-end gap-2 max-w-[85%] sm:max-w-[70%]">
-                <div 
-                  className={`
-                    px-5 py-3 shadow-lg 
-                    ${isMe 
-                      ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl rounded-br-sm' 
-                      : 'bg-zinc-900 border border-zinc-800/80 text-zinc-100 rounded-2xl rounded-bl-sm'}
-                  `}
-                >
-                  <p className="text-[15px] leading-relaxed break-words">{msg.text}</p>
-                </div>
+                {isFileMeta && fileMetaData ? (
+                  <FileMessage fileName={fileMetaData.fileName} fileSize={fileMetaData.fileSize} />
+                ) : (
+                  <div 
+                    className={`
+                      px-5 py-3 shadow-lg 
+                      ${isMe 
+                        ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl rounded-br-sm' 
+                        : 'bg-zinc-900 border border-zinc-800/80 text-zinc-100 rounded-2xl rounded-bl-sm'}
+                    `}
+                  >
+                    <p className="text-[15px] leading-relaxed break-words">{msg.text}</p>
+                  </div>
+                )}
               </div>
               <span className={`text-[10px] font-medium text-zinc-600 mt-1.5 ${isMe ? 'mr-2' : 'ml-2'}`}>
                 {format(new Date(msg.timestamp), 'HH:mm')}
@@ -208,9 +291,20 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       </footer>
       </div>
 
-      <div className="hidden md:flex flex-col w-80 h-full flex-shrink-0 animate-slide-up">
-        <FriendList currentUser={username} />
+      <div className="hidden md:flex flex-col w-80 h-full flex-shrink-0 animate-slide-up space-y-4">
+        <div className="flex-1 min-h-0">
+          <FriendList currentUser={username} />
+        </div>
+        {targetUsername && (
+          <FileTransferSidebar 
+            transfers={transfers}
+            onCancelTransfer={cancelTransfer}
+            onSendFile={(f) => initiateTransfer(f, targetUsername, roomId)}
+            isFriendOnline={true}
+          />
+        )}
       </div>
     </div>
+    </>
   );
 }
