@@ -28,7 +28,7 @@ export function FriendRequestCard({ profile, type, onAction }: { profile: Friend
   return (
     <div className="flex items-center justify-between p-4 rounded-xl bg-zinc-900/50 border border-zinc-800/50">
       <div className="flex items-center gap-3">
-        <img src={profile.avatar} alt={profile.displayName} className="w-12 h-12 rounded-full bg-zinc-800" />
+        <img src={profile.avatar} alt={profile.displayName} className="w-12 h-12 rounded-xl bg-zinc-800" />
         <div>
           <p className="text-zinc-100 font-medium">{profile.displayName}</p>
           <p className="text-zinc-500 text-sm">@{profile.username}</p>

@@ -71,7 +71,7 @@ export function AddFriendModal({ onClose }: { onClose: () => void }) {
           {results.map(user => (
             <div key={user.username} className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/30 border border-zinc-800/50">
               <div className="flex items-center gap-3">
-                <img src={user.avatar} alt={user.displayName} className="w-10 h-10 rounded-full bg-zinc-800" />
+                <img src={user.avatar} alt={user.displayName} className="w-10 h-10 rounded-xl bg-zinc-800" />
                 <div>
                   <p className="text-white font-medium text-sm">{user.displayName}</p>
                   <p className="text-zinc-500 text-xs">@{user.username}</p>
