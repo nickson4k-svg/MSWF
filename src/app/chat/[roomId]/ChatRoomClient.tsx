@@ -22,15 +22,23 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [inputText, setInputText] = useState('');
   const [username, setUsername] = useState('');
   const [copied, setCopied] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const storedName = localStorage.getItem('chat_username');
-    if (!storedName) {
-      router.push('/');
-    } else {
-      setUsername(storedName);
-    }
+    setIsMounted(true);
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(data => {
+        if (data.username) {
+          setUsername(data.username);
+        } else {
+          router.push('/login');
+        }
+      })
+      .catch(() => {
+        router.push('/login');
+      });
   }, [router]);
 
   useEffect(() => {

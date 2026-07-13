@@ -1,8 +1,24 @@
 import { NextResponse } from 'next/server';
 import Pusher from 'pusher';
+import { cookies } from 'next/headers';
+import { verifyToken } from '@/lib/auth';
 
 export async function POST(req: Request) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value;
+    
+    if (!token) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+    
+    const payload = await verifyToken(token);
+    if (!payload || !payload.sub) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+    
+    const sender = payload.sub;
+
     const pusherServer = new Pusher({
       appId: process.env.PUSHER_APP_ID || 'dummy_id',
       key: process.env.NEXT_PUBLIC_PUSHER_KEY || 'dummy_key',
@@ -11,9 +27,9 @@ export async function POST(req: Request) {
       useTLS: true,
     });
 
-    const { text, roomId, sender } = await req.json();
+    const { text, roomId } = await req.json();
 
-    if (!text || !roomId || !sender) {
+    if (!text || !roomId) {
       return new NextResponse('Missing required fields', { status: 400 });
     }
 
