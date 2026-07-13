@@ -41,7 +41,7 @@ export function InstallAppButton() {
       return;
     }
     if (!deferredPrompt) {
-      alert('Додаток вже встановлено або ваш браузер не підтримує швидке встановлення.');
+      alert('Щоб встановити додаток на ПК: натисніть іконку встановлення (або екрана зі стрілкою) в правому куті адресного рядка вашого браузера.');
       return;
     }
     
@@ -56,8 +56,6 @@ export function InstallAppButton() {
 
   // Do not show button if already installed
   if (isStandalone) return null;
-  // If not iOS and no prompt available, don't show the button (maybe not supported)
-  if (!isIOS && !deferredPrompt) return null;
 
   return (
     <Button 
