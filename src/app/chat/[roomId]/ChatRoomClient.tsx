@@ -161,7 +161,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         />
       )}
       <div 
-        className="w-full max-w-7xl flex h-[100dvh] md:h-[calc(100dvh-4rem)] md:my-8 mx-auto md:gap-4 relative"
+        className="w-full max-w-[95rem] flex h-[100dvh] md:h-[calc(100dvh-4rem)] md:my-8 mx-auto md:gap-4 relative px-2 md:px-4"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -172,21 +172,13 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           </div>
         )}
         
-        <div className="hidden md:flex flex-col w-80 h-full flex-shrink-0 animate-slide-up space-y-4">
-          <div className="flex-1 min-h-0">
-            <FriendList currentUser={username} />
-          </div>
-          {targetUsername && (
-            <FileTransferSidebar 
-              transfers={transfers}
-              onCancelTransfer={cancelTransfer}
-              onSendFile={(f) => initiateTransfer(f, targetUsername, roomId)}
-              isFriendOnline={true}
-            />
-          )}
+        {/* ЛІВА ПАНЕЛЬ: Список друзів */}
+        <div className="hidden md:flex flex-col w-72 lg:w-80 h-full flex-shrink-0 animate-slide-up">
+          <FriendList currentUser={username} />
         </div>
 
-        <div className="flex-1 flex flex-col h-full md:rounded-2xl md:border bg-zinc-950/60 shadow-2xl relative overflow-hidden animate-slide-up">
+        {/* ЦЕНТР: Чат */}
+        <div className="flex-1 flex flex-col h-full md:rounded-2xl md:border bg-zinc-950/60 shadow-2xl relative overflow-hidden animate-slide-up min-w-0">
         {/* Background ambient light */}
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
       
@@ -305,6 +297,19 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         </form>
       </footer>
       </div>
+
+      {/* ПРАВА ПАНЕЛЬ: P2P Файли (тільки в приватних чатах) */}
+      {targetUsername && (
+        <div className="hidden lg:flex flex-col w-72 lg:w-80 h-full flex-shrink-0 animate-slide-up">
+          <FileTransferSidebar 
+            transfers={transfers}
+            onCancelTransfer={cancelTransfer}
+            onSendFile={(f) => initiateTransfer(f, targetUsername, roomId)}
+            isFriendOnline={true}
+          />
+        </div>
+      )}
+
     </div>
     </>
   );
