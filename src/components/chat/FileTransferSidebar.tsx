@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { FileTransfer } from '@/hooks/useFileTransfer';
 import { FileTransferItem } from './FileTransferItem';
-import { FolderUp, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export const FileTransferSidebar = ({
@@ -28,8 +28,7 @@ export const FileTransferSidebar = ({
     <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 rounded-2xl overflow-hidden flex flex-col mt-4">
       <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
         <h3 className="text-zinc-100 font-semibold flex items-center gap-2 text-sm">
-          <FolderUp className="w-4 h-4 text-blue-500" />
-          P2P Файли
+          Файли
         </h3>
         <Button 
           variant="ghost" 

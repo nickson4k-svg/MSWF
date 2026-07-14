@@ -14,7 +14,7 @@ export const FileMessage = ({
         <FileCheck className="w-5 h-5" />
       </div>
       <div className="flex flex-col">
-        <span className="text-[13px] font-semibold text-emerald-400 mb-0.5">P2P Файл передано</span>
+        <span className="text-[13px] font-semibold text-emerald-400 mb-0.5">Файл передано</span>
         <span className="text-sm font-medium truncate max-w-[200px]" title={fileName}>
           {fileName}
         </span>

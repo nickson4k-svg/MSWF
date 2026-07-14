@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sparkles, MessageSquare, LogOut, LogIn, UserPlus } from 'lucide-react';
+import { MessageSquare, LogOut, LogIn, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { FriendList } from '@/components/friends/FriendList';
 import { InstallAppButton } from '@/components/InstallAppButton';
@@ -119,7 +119,6 @@ export default function Home() {
                 onClick={handleCreateNew}
                 className="w-full h-12 border-zinc-700 bg-zinc-800/30 hover:bg-zinc-800 hover:text-white text-zinc-300 rounded-xl font-medium transition-all group"
               >
-                <Sparkles className="w-4 h-4 mr-2 text-purple-400 group-hover:animate-pulse" />
                 Створити нову кімнату
               </Button>
             </form>
