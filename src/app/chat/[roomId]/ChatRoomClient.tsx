@@ -64,6 +64,11 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [isDragging, setIsDragging] = useState(false);
   const [isOnline, setIsOnline] = useState(true); // Feature 13: Offline Queue
   const [offlineQueue, setOfflineQueue] = useState<any[]>([]);
+  const offlineQueueRef = useRef<any[]>([]);
+
+  useEffect(() => {
+    offlineQueueRef.current = offlineQueue;
+  }, [offlineQueue]);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -122,6 +127,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       const tempMsg = {
         id: crypto.randomUUID(),
         ...messagePayload,
+        text: text, // Show unencrypted text locally
         timestamp: Date.now()
       };
       cacheMessages([tempMsg]);
@@ -242,8 +248,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     const handleOnline = async () => {
       setIsOnline(true);
       // Flush queue
-      if (offlineQueue.length > 0) {
-        for (const payload of offlineQueue) {
+      const queue = offlineQueueRef.current;
+      if (queue.length > 0) {
+        for (const payload of queue) {
           try {
             await fetch('/api/messages', {
               method: 'POST',
@@ -286,17 +293,60 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     }
   }, [roomId]);
 
-  // Feature 12: Load cached messages from IndexedDB on mount
+  // Feature 12: Load cached messages from IndexedDB and sync with Redis on mount
+  const syncHistory = useCallback(async (currentKey: CryptoKey | null) => {
+    try {
+      const res = await fetch(`/api/messages/history?roomId=${roomId}`);
+      if (!res.ok) return;
+      const history: Message[] = await res.json();
+      
+      const decryptedHistory = await Promise.all(history.map(async m => {
+        if (m.text.startsWith('E2E:') && currentKey) {
+          try {
+            const dec = await decryptText(m.text.substring(4), currentKey);
+            return { ...m, text: dec };
+          } catch { return m; }
+        }
+        return m;
+      }));
+
+      cacheMessages(decryptedHistory);
+      
+      setMessages(prev => {
+        const ids = new Set(prev.map(m => m.id));
+        const merged = [...prev];
+        decryptedHistory.forEach(m => {
+          if (!ids.has(m.id)) {
+            merged.push(m);
+          } else {
+            // Update existing in case it was a large message placeholder
+            const idx = merged.findIndex(x => x.id === m.id);
+            if (idx !== -1 && (merged[idx] as any).isLarge) {
+              merged[idx] = m;
+            }
+          }
+        });
+        merged.sort((a, b) => a.timestamp - b.timestamp);
+        return merged;
+      });
+    } catch (e) {
+      console.error('Failed to sync history', e);
+    }
+  }, [roomId]);
+
   useEffect(() => {
     let mounted = true;
     getCachedMessages(roomId).then(async (cached) => {
-      if (mounted && cached.length > 0) {
+      if (!mounted) return;
+      const key = roomId.startsWith('private-') ? await generateKeyFromRoomId(roomId) : null;
+      if (cached.length > 0) {
         // Decrypt cached messages if needed
-        const key = roomId.startsWith('private-') ? await generateKeyFromRoomId(roomId) : null;
         const decryptedCache = await Promise.all(cached.map(async m => {
           if (m.text.startsWith('E2E:') && key) {
-            const dec = await decryptText(m.text.substring(4), key);
-            return { ...m, text: dec };
+            try {
+              const dec = await decryptText(m.text.substring(4), key);
+              return { ...m, text: dec };
+            } catch { return m; }
           }
           return m;
         }));
@@ -309,6 +359,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           return merged;
         });
       }
+      
+      // Fetch fresh history from server
+      syncHistory(key);
     });
     cleanExpiredMessages();
     return () => { mounted = false; };
@@ -321,7 +374,13 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     const channelName = `room-${sanitizeChannelName(roomId)}`;
     const channel = client.subscribe(channelName);
 
-    channel.bind('incoming-message', async (newMessage: Message) => {
+    channel.bind('incoming-message', async (newMessage: any) => {
+      if (newMessage.isLarge) {
+        // Fetch full payload from history API
+        syncHistory(e2eKeyRef.current);
+        return;
+      }
+
       // Feature 12: Cache RAW new message
       cacheMessages([newMessage]);
 
@@ -411,12 +470,20 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !username) return;
-
-    const currentText = inputText;
+    if (!inputText.trim()) return;
+    const currentReplyTo = replyTo;
+    const textToSend = inputText;
+    
     setInputText('');
     setReplyTo(null);
-    await sendMessage(currentText);
+
+    try {
+      await sendMessage(textToSend);
+    } catch (e) {
+      // Revert UI on failure
+      setInputText(textToSend);
+      setReplyTo(currentReplyTo);
+    }
   };
 
   // Feature 2: send typing event (throttled to 2s)

@@ -54,8 +54,20 @@ export async function POST(req: Request) {
     }
 
     try {
+      // Feature: Save message to Redis for history (and to handle Pusher size limits)
+      await redis.rpush(`messages:${roomId}`, JSON.stringify(message));
+      // Keep only the last 1000 messages per room to avoid memory leaks
+      await redis.ltrim(`messages:${roomId}`, -1000, -1);
+
+      let pusherMessage = { ...message };
+      // Pusher has a 10KB limit. If text is too large (like Base64 voice/video), strip it for the realtime event
+      if (JSON.stringify(pusherMessage).length > 8000) {
+        pusherMessage.text = '[Велике повідомлення]';
+        (pusherMessage as any).isLarge = true;
+      }
+
       // Trigger Pusher event
-      await pusherServer.trigger(`room-${sanitizeChannelName(roomId)}`, 'incoming-message', message);
+      await pusherServer.trigger(`room-${sanitizeChannelName(roomId)}`, 'incoming-message', pusherMessage);
       
       // Feature 6: Increment unread count for private rooms
       if (roomId.startsWith('private-')) {
