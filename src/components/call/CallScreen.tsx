@@ -228,7 +228,7 @@ export const CallScreen = ({
         <Button 
           variant="outline"
           onClick={onToggleMute}
-          className={`w-14 h-14 rounded-full border-zinc-800 flex items-center justify-center transition-all ${isMuted ? 'bg-zinc-800 text-red-400' : 'bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-white'}`}
+          className={`w-14 h-14 rounded-full border-zinc-800 flex items-center justify-center transition-all ${isMuted ? 'bg-zinc-800 text-red-400' : 'bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100'}`}
         >
           {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
         </Button>
@@ -236,7 +236,7 @@ export const CallScreen = ({
         <Button 
           variant="outline"
           onClick={onToggleVideo}
-          className={`w-14 h-14 rounded-full border-zinc-800 flex items-center justify-center transition-all ${isVideoOff ? 'bg-zinc-800 text-red-400' : 'bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-white'}`}
+          className={`w-14 h-14 rounded-full border-zinc-800 flex items-center justify-center transition-all ${isVideoOff ? 'bg-zinc-800 text-red-400' : 'bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100'}`}
         >
           {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
         </Button>
@@ -244,7 +244,7 @@ export const CallScreen = ({
         <Button 
           variant="outline"
           onClick={onToggleScreenShare}
-          className={`w-14 h-14 rounded-full border-zinc-800 flex items-center justify-center transition-all ${isScreenSharing ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' : 'bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-white'}`}
+          className={`w-14 h-14 rounded-full border-zinc-800 flex items-center justify-center transition-all ${isScreenSharing ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' : 'bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100'}`}
           title={isScreenSharing ? "Зупинити демку" : "Демка"}
         >
           {isScreenSharing ? <MonitorX className="w-6 h-6" /> : <MonitorUp className="w-6 h-6" />}
@@ -254,7 +254,7 @@ export const CallScreen = ({
         <Button 
           variant="outline"
           onClick={() => setIsBgBlurred(!isBgBlurred)}
-          className={`w-14 h-14 rounded-full border-zinc-800 flex items-center justify-center transition-all ${isBgBlurred ? 'bg-purple-500/20 text-purple-400 border-purple-500/50' : 'bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-white'}`}
+          className={`w-14 h-14 rounded-full border-zinc-800 flex items-center justify-center transition-all ${isBgBlurred ? 'bg-purple-500/20 text-purple-400 border-purple-500/50' : 'bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100'}`}
           title={isBgBlurred ? "Вимкнути віртуальний фон" : "Віртуальний фон"}
         >
           <Sparkles className="w-6 h-6" />
@@ -264,7 +264,7 @@ export const CallScreen = ({
         <Button 
           variant="outline"
           onClick={isRecording ? stopRecording : startRecording}
-          className={`w-14 h-14 rounded-full border-zinc-800 flex items-center justify-center transition-all ${isRecording ? 'bg-red-500/20 text-red-400 border-red-500/50' : 'bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-white'}`}
+          className={`w-14 h-14 rounded-full border-zinc-800 flex items-center justify-center transition-all ${isRecording ? 'bg-red-500/20 text-red-400 border-red-500/50' : 'bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100'}`}
           title={isRecording ? "Зупинити запис" : "Записати дзвінок"}
         >
           {isRecording ? <Square className="w-5 h-5" /> : <Circle className="w-6 h-6" />}
