@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, Video, VideoOff, MonitorUp, MonitorX, PhoneOff, Circle, Square, Signal, SignalLow, SignalMedium, SignalHigh } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, MonitorUp, MonitorX, PhoneOff, Circle, Square, Signal, SignalLow, SignalMedium, SignalHigh, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VideoGrid } from './VideoGrid';
 
@@ -94,6 +94,9 @@ export const CallScreen = ({
 }) => {
   // Feature 17: Connection quality
   const { quality, stats } = useConnectionQuality(peerConnection || null);
+
+  // Feature 19: Virtual Background (simulated via CSS)
+  const [isBgBlurred, setIsBgBlurred] = useState(false);
 
   // Feature 18: Screen recording
   const [isRecording, setIsRecording] = useState(false);
@@ -200,6 +203,7 @@ export const CallScreen = ({
           remoteStream={remoteStream}
           isScreenSharing={isScreenSharing}
           isVideoOff={isVideoOff}
+          isBgBlurred={isBgBlurred}
         />
         
         {/* Screen Share Indicator */}
@@ -244,6 +248,16 @@ export const CallScreen = ({
           title={isScreenSharing ? "Зупинити демку" : "Демка"}
         >
           {isScreenSharing ? <MonitorX className="w-6 h-6" /> : <MonitorUp className="w-6 h-6" />}
+        </Button>
+
+        {/* Feature 19: Virtual Background */}
+        <Button 
+          variant="outline"
+          onClick={() => setIsBgBlurred(!isBgBlurred)}
+          className={`w-14 h-14 rounded-full border-zinc-800 flex items-center justify-center transition-all ${isBgBlurred ? 'bg-purple-500/20 text-purple-400 border-purple-500/50' : 'bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-white'}`}
+          title={isBgBlurred ? "Вимкнути віртуальний фон" : "Віртуальний фон"}
+        >
+          <Sparkles className="w-6 h-6" />
         </Button>
 
         {/* Feature 18: Record button */}

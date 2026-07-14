@@ -4,12 +4,14 @@ export const VideoGrid = ({
   localStream,
   remoteStream,
   isScreenSharing,
-  isVideoOff
+  isVideoOff,
+  isBgBlurred
 }: {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   isScreenSharing: boolean;
   isVideoOff: boolean;
+  isBgBlurred?: boolean; // Feature 19
 }) => {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -54,7 +56,7 @@ export const VideoGrid = ({
           autoPlay
           playsInline
           muted
-          className={`w-full h-full object-cover ${!isScreenSharing ? 'scale-x-[-1]' : ''}`}
+          className={`w-full h-full object-cover transition-all duration-700 ${!isScreenSharing ? 'scale-x-[-1]' : ''} ${isBgBlurred ? 'blur-md contrast-125 saturate-150 scale-110' : ''}`}
         />
         {isVideoOff && isScreenSharing && (
           <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center text-zinc-500 text-xs text-center p-2 backdrop-blur-sm">

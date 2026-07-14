@@ -3,6 +3,7 @@ import Pusher from 'pusher';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { sanitizeChannelName } from '@/lib/pusher';
+import { redis } from '@/lib/redis';
 
 export async function POST(req: Request) {
   try {
@@ -31,6 +32,11 @@ export async function POST(req: Request) {
         'message-read',
         { messageId: msgId, reader: payload.sub }
       );
+    }
+
+    // Feature 6: Reset unread count for the reader
+    if (roomId.startsWith('private-')) {
+      await redis.del(`unread:${roomId}:${payload.sub}`);
     }
 
     return NextResponse.json({ ok: true });

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { redis } from '@/lib/redis';
-import { FriendProfile, FriendWithStatus } from '@/lib/friends';
+import { FriendProfile, FriendWithStatus, getPrivateRoomId } from '@/lib/friends';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,15 +26,20 @@ export async function GET(req: Request) {
     const friendProfiles: FriendWithStatus[] = [];
 
     // Fetch profiles and presence for all friends
-    for (const friendUsername of friends) {
+    for (const f of friends) {
+      const friendUsername = f as string;
       const profileData = await redis.hgetall(`profile:${friendUsername}`);
       const presence = await redis.get(`presence:${friendUsername}`);
+      const roomId = getPrivateRoomId(currentUser, friendUsername);
+      const unreadCountStr = await redis.get(`unread:${roomId}:${currentUser}`);
+      const unreadCount = unreadCountStr ? parseInt(unreadCountStr as string, 10) : 0;
       
       if (profileData && profileData.username) {
         friendProfiles.push({
           ...(profileData as unknown as FriendProfile),
           isOnline: presence === 'online',
-          lastSeen: presence === 'online' ? new Date().toISOString() : undefined // We could store actual last seen, but this suffices for now
+          lastSeen: presence === 'online' ? new Date().toISOString() : undefined,
+          unreadCount
         });
       }
     }

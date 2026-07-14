@@ -10,6 +10,7 @@ export interface FriendProfile {
 export interface FriendWithStatus extends FriendProfile {
   isOnline: boolean;
   lastSeen?: string;
+  unreadCount?: number; // Feature 6: unread badge
 }
 
 export function getPrivateRoomId(user1: string, user2: string) {

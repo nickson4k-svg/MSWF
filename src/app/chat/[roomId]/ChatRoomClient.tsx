@@ -17,7 +17,10 @@ import { useCall } from '@/hooks/useCall';
 import { CallScreen } from '@/components/call/CallScreen';
 import { parseMarkdown } from '@/lib/markdown';
 import { LinkPreview } from '@/components/chat/LinkPreview';
-import { Timer, Clock } from 'lucide-react';
+import { Timer, Clock, Mic, Square } from 'lucide-react';
+import { getCachedMessages, cacheMessages, cleanExpiredMessages } from '@/lib/db';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { generateKeyFromRoomId, encryptText, decryptText } from '@/lib/e2ee';
 
 interface Message {
   id: string;
@@ -59,6 +62,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [copied, setCopied] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isOnline, setIsOnline] = useState(true); // Feature 13: Offline Queue
+  const [offlineQueue, setOfflineQueue] = useState<any[]>([]);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const chatAreaRef = useRef<HTMLDivElement>(null);
@@ -75,22 +81,98 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [selectedTtl, setSelectedTtl] = useState(0);
   const [showTtlPicker, setShowTtlPicker] = useState(false);
 
-  const sendMessage = async (text: string) => {
+  // Feature 9: E2E Encryption
+  const [e2eKey, setE2eKey] = useState<CryptoKey | null>(null);
+  const e2eKeyRef = useRef<CryptoKey | null>(null);
+
+  useEffect(() => {
+    e2eKeyRef.current = e2eKey;
+  }, [e2eKey]);
+
+  // Feature 11: Voice messages
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const sendMessage = async (text: string, isVoice = false) => {
     if (!text.trim() || !username) return;
+    
+    let payloadText = text;
+    // Feature 9: Encrypt text if E2EE key is available and it's not a voice message (base64 is already obfuscated, but we can encrypt it too if we want)
+    if (e2eKey) {
+      try {
+        payloadText = await encryptText(text, e2eKey);
+        payloadText = 'E2E:' + payloadText; // Add prefix so receiver knows
+      } catch (e) {
+        console.error('Failed to encrypt:', e);
+      }
+    }
+
+    const messagePayload = {
+      text: payloadText,
+      roomId,
+      sender: username,
+      replyTo: replyTo?.id || undefined,
+      ttl: selectedTtl || undefined,
+    };
+
+    if (!isOnline) {
+      setOfflineQueue(prev => [...prev, messagePayload]);
+      // Optimistic cache so user sees it locally
+      const tempMsg = {
+        id: crypto.randomUUID(),
+        ...messagePayload,
+        timestamp: Date.now()
+      };
+      cacheMessages([tempMsg]);
+      setMessages(prev => [...prev, tempMsg]);
+      return;
+    }
+
     try {
       await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text,
-          roomId,
-          sender: username,
-          replyTo: replyTo?.id || undefined,
-          ttl: selectedTtl || undefined,
-        }),
+        body: JSON.stringify(messagePayload),
       });
     } catch (err) {
       console.error('Failed to send:', err);
+    }
+  };
+
+  const startVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      
+      recorder.ondataavailable = e => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = () => {
+          const base64Audio = reader.result as string;
+          sendMessage(base64Audio, true);
+        };
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecordingVoice(true);
+    } catch (e) {
+      console.error('Microphone access denied:', e);
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorderRef.current && isRecordingVoice) {
+      mediaRecorderRef.current.stop();
+      setIsRecordingVoice(false);
     }
   };
 
@@ -155,6 +237,31 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
   useEffect(() => {
     let mounted = true;
+    setIsOnline(navigator.onLine);
+
+    const handleOnline = async () => {
+      setIsOnline(true);
+      // Flush queue
+      if (offlineQueue.length > 0) {
+        for (const payload of offlineQueue) {
+          try {
+            await fetch('/api/messages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+          } catch (e) {
+            console.error('Failed to flush message:', e);
+          }
+        }
+        setOfflineQueue([]);
+      }
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     setIsMounted(true);
     fetch('/api/auth/me')
       .then(res => res.json())
@@ -173,16 +280,60 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   }, [router]);
 
   useEffect(() => {
+    // Initialize E2EE key if private room
+    if (roomId.startsWith('private-')) {
+      generateKeyFromRoomId(roomId).then(setE2eKey).catch(console.error);
+    }
+  }, [roomId]);
+
+  // Feature 12: Load cached messages from IndexedDB on mount
+  useEffect(() => {
+    let mounted = true;
+    getCachedMessages(roomId).then(async (cached) => {
+      if (mounted && cached.length > 0) {
+        // Decrypt cached messages if needed
+        const key = roomId.startsWith('private-') ? await generateKeyFromRoomId(roomId) : null;
+        const decryptedCache = await Promise.all(cached.map(async m => {
+          if (m.text.startsWith('E2E:') && key) {
+            const dec = await decryptText(m.text.substring(4), key);
+            return { ...m, text: dec };
+          }
+          return m;
+        }));
+
+        setMessages(prev => {
+          const ids = new Set(prev.map(m => m.id));
+          const merged = [...prev];
+          decryptedCache.forEach(m => { if (!ids.has(m.id)) merged.push(m); });
+          merged.sort((a, b) => a.timestamp - b.timestamp);
+          return merged;
+        });
+      }
+    });
+    cleanExpiredMessages();
+    return () => { mounted = false; };
+  }, [roomId]);
+
+  useEffect(() => {
     const client = getPusherClient();
     if (!client) return;
 
     const channelName = `room-${sanitizeChannelName(roomId)}`;
     const channel = client.subscribe(channelName);
 
-    channel.bind('incoming-message', (newMessage: Message) => {
+    channel.bind('incoming-message', async (newMessage: Message) => {
+      // Feature 12: Cache RAW new message
+      cacheMessages([newMessage]);
+
+      let dispMessage = { ...newMessage };
+      // Feature 9: Decrypt incoming E2E message
+      if (dispMessage.text.startsWith('E2E:') && e2eKeyRef.current) {
+        dispMessage.text = await decryptText(dispMessage.text.substring(4), e2eKeyRef.current);
+      }
+
       setMessages((prev) => {
-        if (prev.find(m => m.id === newMessage.id)) return prev;
-        return [...prev, newMessage];
+        if (prev.find(m => m.id === dispMessage.id)) return prev;
+        return [...prev, dispMessage];
       });
     });
 
@@ -419,7 +570,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <ThemeToggle />
           {targetUsername && (
             <Button 
               variant="ghost" 
@@ -526,8 +678,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                           : 'bg-zinc-900 border border-zinc-800/80 text-zinc-100 rounded-2xl rounded-bl-sm'}
                       `}
                     >
-                      {/* Feature 1: Markdown rendering */}
-                      <p className="text-[15px] leading-relaxed break-words" dangerouslySetInnerHTML={{ __html: parseMarkdown(msg.text) }} />
+                      {/* Feature 1: Markdown rendering or Feature 11: Voice message */}
+                      {msg.text.startsWith('data:audio/') ? (
+                        <audio controls src={msg.text} className="max-w-[200px] sm:max-w-[250px] h-10" />
+                      ) : (
+                        <p className="text-[15px] leading-relaxed break-words" dangerouslySetInnerHTML={{ __html: parseMarkdown(msg.text) }} />
+                      )}
                       {/* Feature 20: Auto-destruct indicator */}
                       {msg.ttl && (
                         <div className="flex items-center gap-1 mt-1 text-amber-400/80">
@@ -622,13 +778,25 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             placeholder="Напишіть повідомлення..."
             className="flex-1 bg-zinc-900/80 border-zinc-700/50 text-zinc-100 h-12 sm:h-14 pl-4 sm:pl-5 pr-12 sm:pr-14 rounded-full focus-visible:ring-1 focus-visible:ring-blue-500/50 shadow-inner text-[14px] sm:text-[15px] placeholder:text-zinc-500"
           />
-          <Button 
-            type="submit" 
-            disabled={!inputText.trim()} 
-            className="absolute right-1 sm:right-1.5 top-1 bottom-1 sm:top-1.5 sm:bottom-1.5 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-50 disabled:hover:bg-blue-600 flex items-center justify-center p-0 shadow-md"
-          >
-            <Send className="w-4 h-4 sm:w-5 sm:h-5 ml-1" />
-          </Button>
+          <div className="absolute right-1 sm:right-1.5 flex items-center gap-1">
+            {inputText.trim() ? (
+              <Button 
+                type="submit" 
+                className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-blue-600 hover:bg-blue-500 text-white transition-all flex items-center justify-center p-0 shadow-md"
+              >
+                <Send className="w-4 h-4 sm:w-5 sm:h-5 ml-1" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
+                className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full transition-all flex items-center justify-center p-0 shadow-md ${isRecordingVoice ? 'bg-red-500 hover:bg-red-600 animate-pulse text-white' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}`}
+                title={isRecordingVoice ? "Зупинити запис" : "Голосове повідомлення"}
+              >
+                {isRecordingVoice ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4 sm:w-5 sm:h-5" />}
+              </Button>
+            )}
+          </div>
         </form>
       </footer>
       </div>

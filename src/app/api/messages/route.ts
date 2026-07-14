@@ -3,6 +3,7 @@ import Pusher from 'pusher';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { sanitizeChannelName } from '@/lib/pusher';
+import { redis } from '@/lib/redis';
 
 export async function POST(req: Request) {
   try {
@@ -55,6 +56,15 @@ export async function POST(req: Request) {
     try {
       // Trigger Pusher event
       await pusherServer.trigger(`room-${sanitizeChannelName(roomId)}`, 'incoming-message', message);
+      
+      // Feature 6: Increment unread count for private rooms
+      if (roomId.startsWith('private-')) {
+        const parts = roomId.replace('private-', '').split('-');
+        const target = parts.find((u: string) => u !== sender);
+        if (target) {
+          await redis.incr(`unread:${roomId}:${target}`);
+        }
+      }
     } catch (pusherErr) {
       console.warn('Pusher failed (missing keys?):', pusherErr);
     }

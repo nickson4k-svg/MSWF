@@ -99,13 +99,21 @@ export function FriendList({ currentUser }: { currentUser: string }) {
                   <p className="text-zinc-500 text-xs">{friend.isOnline ? 'Online' : 'Offline'}</p>
                 </div>
               </div>
-              <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="icon" className="w-8 h-8 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10" onClick={() => startChat(friend.username)}>
-                  <MessageSquare className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => removeFriend(friend.username)}>
-                  <UserMinus className="w-4 h-4" />
-                </Button>
+              <div className="flex items-center gap-3">
+                {/* Feature 6: Unread badge */}
+                {friend.unreadCount ? (
+                  <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                    {friend.unreadCount}
+                  </span>
+                ) : null}
+                <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                  <Button variant="ghost" size="icon" className="w-8 h-8 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10" onClick={() => startChat(friend.username)}>
+                    <MessageSquare className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => removeFriend(friend.username)}>
+                    <UserMinus className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           ))

@@ -9,6 +9,7 @@ import { MessageSquare, LogOut, LogIn, UserPlus, Camera, Loader2 } from 'lucide-
 import Link from 'next/link';
 import { FriendList } from '@/components/friends/FriendList';
 import { InstallAppButton } from '@/components/InstallAppButton';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function Home() {
   const router = useRouter();
@@ -115,6 +116,10 @@ export default function Home() {
               Вийти
             </Button>
           )}
+
+          <div className="absolute top-4 left-4">
+            <ThemeToggle />
+          </div>
 
           <div 
             onClick={() => username && fileInputRef.current?.click()}
