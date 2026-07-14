@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     const currentUser = tokenPayload.sub;
 
     const body = await req.json();
-    const { targetUsername, type, payload, fileMeta, roomId, transferId } = body;
+    const { targetUsername, type } = body;
 
     if (!targetUsername || !type) {
       return new NextResponse('Bad Request', { status: 400 });
@@ -38,13 +38,8 @@ export async function POST(req: Request) {
 
     // Trigger signaling event to target user's private channel
     await pusherServer.trigger(`user-${targetUsername}`, 'webrtc-signal', {
+      ...body,
       senderUsername: currentUser,
-      targetUsername,
-      type,
-      payload,
-      fileMeta,
-      roomId,
-      transferId
     });
 
     return NextResponse.json({ success: true });
