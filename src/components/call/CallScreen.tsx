@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, Video, VideoOff, MonitorUp, MonitorX, PhoneOff, Circle, Square, Signal, SignalLow, SignalMedium, SignalHigh, Sparkles } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, MonitorUp, MonitorX, PhoneOff, Circle, Square, Signal, SignalLow, SignalMedium, SignalHigh, Sparkles, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VideoGrid } from './VideoGrid';
 
@@ -74,7 +74,9 @@ export const CallScreen = ({
   onToggleMute,
   onToggleVideo,
   onToggleScreenShare,
-  peerConnection
+  peerConnection,
+  networkQuality,
+  callDuration = 0
 }: {
   callState: string;
   incomingCall: { sender: string } | null;
@@ -90,10 +92,18 @@ export const CallScreen = ({
   onToggleMute: () => void;
   onToggleVideo: () => void;
   onToggleScreenShare: () => void;
-  peerConnection?: RTCPeerConnection | null;
+  peerConnection: RTCPeerConnection | null;
+  networkQuality?: 'Good' | 'Fair' | 'Poor';
+  callDuration?: number;
 }) => {
   // Feature 17: Connection quality
   const { quality, stats } = useConnectionQuality(peerConnection || null);
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Feature 19: Virtual Background (simulated via CSS)
   const [isBgBlurred, setIsBgBlurred] = useState(false);
@@ -213,6 +223,21 @@ export const CallScreen = ({
             Співрозмовник демонструє екран
           </div>
         )}
+
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+            <div className="bg-zinc-900/90 text-white px-4 py-1.5 rounded-full text-sm font-medium shadow-lg backdrop-blur flex items-center gap-2 animate-in slide-in-from-top-4">
+              <Timer className="w-4 h-4" />
+              {formatDuration(callDuration)}
+            </div>
+            
+            {/* Feature 10: Network Quality Indicator */}
+            {networkQuality && networkQuality !== 'Good' && (
+              <div className="bg-zinc-900/90 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg backdrop-blur flex items-center gap-1.5 animate-in slide-in-from-top-4">
+                <span className={`w-2 h-2 rounded-full ${networkQuality === 'Fair' ? 'bg-amber-400' : 'bg-red-500 animate-pulse'}`}></span>
+                Зв'язок: {networkQuality === 'Fair' ? 'Поганий' : 'Критичний'}
+              </div>
+            )}
+        </div>
 
         {/* Feature 18: Recording indicator */}
         {isRecording && (

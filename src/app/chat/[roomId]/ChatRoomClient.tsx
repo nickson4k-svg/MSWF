@@ -32,6 +32,8 @@ interface Message {
   readBy?: string[];      // Feature 3: read receipts
   ttl?: number;           // Feature 20: auto-destruct TTL in seconds
   reactions?: Record<string, string>; // Feature 2: reactions (username -> emoji)
+  editedAt?: number;      // Feature 11: Edit
+  isDeleted?: boolean;    // Feature 11: Delete
 }
 
 // Feature 14: Extract first URL from text
@@ -83,6 +85,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   // Feature 15: Reply
   const [replyTo, setReplyTo] = useState<Message | null>(null);
 
+  // Feature 11: Edit message
+  const [editingMsg, setEditingMsg] = useState<Message | null>(null);
+  
   // Feature 20: Auto-destruct
   const [selectedTtl, setSelectedTtl] = useState(0);
   const [showTtlPicker, setShowTtlPicker] = useState(false);
@@ -133,6 +138,21 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       };
       cacheMessages([tempMsg]);
       setMessages(prev => [...prev, tempMsg]);
+      return;
+    }
+
+    if (editingMsg) {
+      try {
+        await fetch('/api/messages/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'edit', msgId: editingMsg.id, roomId, text: messagePayload.text })
+        });
+        setEditingMsg(null);
+        setInputText('');
+      } catch (err) {
+        console.error('Failed to edit:', err);
+      }
       return;
     }
 
@@ -431,6 +451,18 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           // If emoji is empty, remove the reaction
           if (!data.emoji) delete reactions[data.sender];
           return { ...m, reactions };
+        }
+        return m;
+      }));
+    });
+
+    // Feature 11: message edit/delete actions
+    channel.bind('message-action', (data: { action: string; msgId: string; msg: Message }) => {
+      setMessages(prev => prev.map(m => {
+        if (m.id === data.msgId) {
+          if (data.action === 'edit' || data.action === 'delete') {
+            return { ...m, ...data.msg };
+          }
         }
         return m;
       }));
@@ -748,6 +780,41 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                 )}
 
                 <div className="group relative flex items-end gap-2 max-w-[85%] sm:max-w-[70%]">
+                  {/* Edit/Delete Actions for Own Messages */}
+                  {isMe && !msg.isDeleted && (
+                    <div className="absolute top-0 right-0 -mt-10 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl flex z-20 overflow-hidden">
+                      <button 
+                        onClick={() => {
+                          let plainText = msg.text;
+                          if (plainText.startsWith('E2E:') && e2eKeyRef.current) {
+                            // If it's encrypted, we need the original text. We rely on the decrypted view.
+                            // But wait, the msg.text in state is already decrypted!
+                          }
+                          setEditingMsg(msg);
+                          setInputText(msg.text);
+                          inputRef.current?.focus();
+                        }}
+                        className="px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 hover:text-white border-r border-zinc-700 transition-colors"
+                      >
+                        Редагувати
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (confirm('Видалити повідомлення?')) {
+                            fetch('/api/messages/action', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ action: 'delete', msgId: msg.id, roomId })
+                            });
+                          }
+                        }}
+                        className="px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                      >
+                        Видалити
+                      </button>
+                    </div>
+                  )}
+                  
                   {/* Reaction Button on Hover */}
                   <div className={`absolute top-0 -mt-10 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-800 border border-zinc-700 p-1.5 rounded-full shadow-xl flex gap-1 z-20 ${isMe ? 'right-0' : 'left-0'}`}>
                     {['👍', '❤️', '😂', '😮', '😡'].map(emoji => (
@@ -768,6 +835,10 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                   </div>
                   {isFileMeta && fileMetaData ? (
                     <FileMessage fileName={fileMetaData.fileName} fileSize={fileMetaData.fileSize} />
+                  ) : msg.isDeleted ? (
+                    <div className={`px-5 py-3 shadow-lg bg-zinc-900 border border-zinc-800/80 text-zinc-500 italic rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
+                      Повідомлення видалено
+                    </div>
                   ) : (
                     <div 
                       className={`
@@ -783,6 +854,11 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                       ) : (
                         <p className="text-[15px] leading-relaxed break-words" dangerouslySetInnerHTML={{ __html: parseMarkdown(msg.text) }} />
                       )}
+                      
+                      {msg.editedAt && (
+                        <span className="text-[10px] text-zinc-400 opacity-70 ml-2">(змінено)</span>
+                      )}
+
                       {/* Feature 20: Auto-destruct indicator */}
                       {msg.ttl && (
                         <div className="flex items-center gap-1 mt-1 text-amber-400/80">

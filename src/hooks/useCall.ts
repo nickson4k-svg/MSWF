@@ -20,6 +20,10 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const currentCallIdRef = useRef<string | null>(null);
   const iceCandidateQueue = useRef<RTCIceCandidateInit[]>([]);
+  const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Feature 10: Adaptive Bitrate tracking
+  const [networkQuality, setNetworkQuality] = useState<'Good' | 'Fair' | 'Poor'>('Good');
 
   useEffect(() => {
     if (!currentUser) return;
@@ -55,6 +59,7 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
         if (pcRef.current) {
           await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload));
           setCallState('connected');
+          startStatsPolling();
           
           // Process queued ICE candidates
           for (const candidate of iceCandidateQueue.current) {
@@ -168,6 +173,7 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     if (stream.getVideoTracks().length === 0) pc.addTransceiver('video', { direction: 'recvonly' });
 
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    startStatsPolling();
     
     // Process queued ICE candidates
     for (const candidate of iceCandidateQueue.current) {
@@ -228,6 +234,11 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
       pcRef.current = null;
     }
     
+    if (statsIntervalRef.current) {
+      clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
+    }
+    
     if (localStream) {
       localStream.getTracks().forEach(t => t.stop());
       setLocalStream(null);
@@ -286,6 +297,73 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     }
   };
 
+  // Feature 10: Adaptive Bitrate Polling
+  const startStatsPolling = useCallback(() => {
+    if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
+    
+    statsIntervalRef.current = setInterval(async () => {
+      if (!pcRef.current) return;
+      
+      try {
+        const stats = await pcRef.current.getStats();
+        let rtt = 0;
+        let packetsLost = 0;
+        let packetsSent = 0;
+        
+        stats.forEach(report => {
+          if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+            rtt = report.currentRoundTripTime || 0;
+          }
+          if (report.type === 'outbound-rtp' && report.kind === 'video') {
+            packetsSent = report.packetsSent || 0;
+          }
+          if (report.type === 'remote-inbound-rtp' && report.kind === 'video') {
+            packetsLost = report.packetsLost || 0;
+          }
+        });
+        
+        const lossRate = packetsSent > 0 ? packetsLost / packetsSent : 0;
+        
+        // Find video sender to adjust bitrate
+        const senders = pcRef.current.getSenders();
+        const videoSender = senders.find(s => s.track?.kind === 'video');
+        
+        if (videoSender && videoSender.track) {
+          const params = videoSender.getParameters();
+          if (!params.encodings) params.encodings = [{}];
+          
+          let currentMaxBitrate = params.encodings[0].maxBitrate || 1500000;
+          let newQuality: 'Good' | 'Fair' | 'Poor' = 'Good';
+          
+          // Simple adaptation logic based on RTT (s) and Packet Loss
+          if (rtt > 0.25 || lossRate > 0.05) {
+            // Poor network, drop bitrate significantly
+            newQuality = 'Poor';
+            currentMaxBitrate = Math.max(100000, currentMaxBitrate * 0.5); 
+          } else if (rtt > 0.1 || lossRate > 0.02) {
+            // Fair network, slight drop
+            newQuality = 'Fair';
+            currentMaxBitrate = Math.max(250000, currentMaxBitrate * 0.8);
+          } else {
+            // Good network, slowly recover
+            newQuality = 'Good';
+            currentMaxBitrate = Math.min(2500000, currentMaxBitrate * 1.1);
+          }
+          
+          if (params.encodings[0].maxBitrate !== currentMaxBitrate) {
+            params.encodings[0].maxBitrate = currentMaxBitrate;
+            await videoSender.setParameters(params);
+            console.log(`[ABR] Quality: ${newQuality}, maxBitrate set to: ${currentMaxBitrate}`);
+          }
+          
+          setNetworkQuality(newQuality);
+        }
+      } catch (e) {
+        console.error('Error polling stats for ABR', e);
+      }
+    }, 2000);
+  }, []);
+
   return {
     callState,
     incomingCall,
@@ -295,6 +373,7 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     isMuted,
     isVideoOff,
     isScreenSharing,
+    networkQuality,
     peerConnection: pcRef.current,
     startCall,
     acceptCall,
