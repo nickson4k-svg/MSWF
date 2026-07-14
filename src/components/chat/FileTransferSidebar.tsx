@@ -25,7 +25,7 @@ export const FileTransferSidebar = ({
   };
 
   return (
-    <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 rounded-2xl overflow-hidden flex flex-col mt-4">
+    <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 rounded-2xl overflow-hidden flex flex-col h-full">
       <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
         <h3 className="text-zinc-100 font-semibold flex items-center gap-2 text-sm">
           Файли
@@ -48,9 +48,9 @@ export const FileTransferSidebar = ({
         />
       </div>
 
-      <div className="p-3 flex-1 max-h-[300px] overflow-y-auto space-y-2">
+      <div className="p-3 flex-1 overflow-y-auto space-y-2 relative">
         {transfers.length === 0 ? (
-          <div className="text-center py-6 text-zinc-500 text-xs">
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-zinc-500 text-xs">
             {isFriendOnline 
               ? "Перетягніть файл у чат або натисніть '+' для швидкої передачі напряму."
               : "P2P передача працює лише коли друг онлайн."
