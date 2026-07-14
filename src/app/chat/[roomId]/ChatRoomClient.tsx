@@ -172,10 +172,17 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           </div>
         )}
         
-        {/* ЛІВА ПАНЕЛЬ: Список друзів */}
-        <div className="hidden md:flex flex-col w-72 lg:w-80 h-full flex-shrink-0 animate-slide-up">
-          <FriendList currentUser={username} />
-        </div>
+        {/* ЛІВА ПАНЕЛЬ: P2P Файли (тільки в приватних чатах) */}
+        {targetUsername && (
+          <div className="hidden lg:flex flex-col w-72 lg:w-80 h-full flex-shrink-0 animate-slide-up">
+            <FileTransferSidebar 
+              transfers={transfers}
+              onCancelTransfer={cancelTransfer}
+              onSendFile={(f) => initiateTransfer(f, targetUsername, roomId)}
+              isFriendOnline={true}
+            />
+          </div>
+        )}
 
         {/* ЦЕНТР: Чат */}
         <div className="flex-1 flex flex-col h-full md:rounded-2xl md:border bg-zinc-950/60 shadow-2xl relative overflow-hidden animate-slide-up min-w-0">
@@ -298,17 +305,10 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       </footer>
       </div>
 
-      {/* ПРАВА ПАНЕЛЬ: P2P Файли (тільки в приватних чатах) */}
-      {targetUsername && (
-        <div className="hidden lg:flex flex-col w-72 lg:w-80 h-full flex-shrink-0 animate-slide-up">
-          <FileTransferSidebar 
-            transfers={transfers}
-            onCancelTransfer={cancelTransfer}
-            onSendFile={(f) => initiateTransfer(f, targetUsername, roomId)}
-            isFriendOnline={true}
-          />
-        </div>
-      )}
+      {/* ПРАВА ПАНЕЛЬ: Список друзів */}
+      <div className="hidden md:flex flex-col w-72 lg:w-80 h-full flex-shrink-0 animate-slide-up">
+        <FriendList currentUser={username} />
+      </div>
 
     </div>
     </>
