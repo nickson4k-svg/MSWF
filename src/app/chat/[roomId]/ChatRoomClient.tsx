@@ -31,6 +31,7 @@ interface Message {
   replyTo?: string;       // Feature 15: reply
   readBy?: string[];      // Feature 3: read receipts
   ttl?: number;           // Feature 20: auto-destruct TTL in seconds
+  reactions?: Record<string, string>; // Feature 2: reactions (username -> emoji)
 }
 
 // Feature 14: Extract first URL from text
@@ -422,6 +423,19 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       }));
     });
 
+    // Feature 2: message reactions
+    channel.bind('message-reaction', (data: { msgId: string; sender: string; emoji: string }) => {
+      setMessages(prev => prev.map(m => {
+        if (m.id === data.msgId) {
+          const reactions = { ...m.reactions, [data.sender]: data.emoji };
+          // If emoji is empty, remove the reaction
+          if (!data.emoji) delete reactions[data.sender];
+          return { ...m, reactions };
+        }
+        return m;
+      }));
+    });
+
     return () => {
       client.unsubscribe(channelName);
     };
@@ -734,6 +748,24 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                 )}
 
                 <div className="group relative flex items-end gap-2 max-w-[85%] sm:max-w-[70%]">
+                  {/* Reaction Button on Hover */}
+                  <div className={`absolute top-0 -mt-10 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-800 border border-zinc-700 p-1.5 rounded-full shadow-xl flex gap-1 z-20 ${isMe ? 'right-0' : 'left-0'}`}>
+                    {['👍', '❤️', '😂', '😮', '😡'].map(emoji => (
+                      <button 
+                        key={emoji}
+                        onClick={() => {
+                          fetch('/api/messages/react', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ msgId: msg.id, roomId, emoji: msg.reactions?.[username] === emoji ? '' : emoji })
+                          });
+                        }}
+                        className={`hover:bg-zinc-700 w-7 h-7 rounded-full flex items-center justify-center text-sm transition-transform hover:scale-125 ${msg.reactions?.[username] === emoji ? 'bg-zinc-700 bg-opacity-50' : ''}`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
                   {isFileMeta && fileMetaData ? (
                     <FileMessage fileName={fileMetaData.fileName} fileSize={fileMetaData.fileSize} />
                   ) : (
@@ -756,6 +788,22 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                         <div className="flex items-center gap-1 mt-1 text-amber-400/80">
                           <Timer className="w-3 h-3" />
                           <span className="text-[10px] font-medium">Самознищення: {msg.ttl < 60 ? `${msg.ttl}с` : msg.ttl < 3600 ? `${Math.floor(msg.ttl / 60)}хв` : `${Math.floor(msg.ttl / 3600)}д`}</span>
+                        </div>
+                      )}
+
+                      {/* Display Reactions */}
+                      {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                        <div className={`absolute -bottom-3 flex items-center gap-1 ${isMe ? 'right-2' : 'left-2'}`}>
+                          {Object.entries(
+                            Object.values(msg.reactions).reduce((acc, emoji) => {
+                              acc[emoji] = (acc[emoji] || 0) + 1;
+                              return acc;
+                            }, {} as Record<string, number>)
+                          ).map(([emoji, count]) => (
+                            <span key={emoji} className="bg-zinc-800 border border-zinc-700 text-[10px] px-1.5 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                              {emoji} <span className="text-zinc-400">{count > 1 ? count : ''}</span>
+                            </span>
+                          ))}
                         </div>
                       )}
                     </div>
