@@ -295,6 +295,7 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     isMuted,
     isVideoOff,
     isScreenSharing,
+    peerConnection: pcRef.current,
     startCall,
     acceptCall,
     rejectCall,

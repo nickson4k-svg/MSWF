@@ -28,19 +28,29 @@ export async function POST(req: Request) {
       useTLS: true,
     });
 
-    const { text, roomId } = await req.json();
+    const { text, roomId, replyTo, ttl } = await req.json();
 
     if (!text || !roomId) {
       return new NextResponse('Missing required fields', { status: 400 });
     }
 
-    const message = {
+    const message: Record<string, unknown> = {
       id: crypto.randomUUID(),
       text,
       roomId,
       sender,
       timestamp: Date.now(),
     };
+
+    // Feature 15: Reply support
+    if (replyTo) {
+      message.replyTo = replyTo;
+    }
+
+    // Feature 20: Auto-destruct TTL
+    if (ttl && typeof ttl === 'number' && ttl > 0) {
+      message.ttl = ttl;
+    }
 
     try {
       // Trigger Pusher event
