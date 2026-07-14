@@ -69,7 +69,7 @@ export const CallScreen = ({
       {/* Header */}
       <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-zinc-950/90 to-transparent z-10 flex items-center justify-center pointer-events-none">
         <div className="flex items-center gap-2 text-zinc-200">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-slow"></span>
+          <span className="w-2.5 h-2.5 bg-emerald-500 animate-pixel-flame"></span>
           Дзвінок з {targetUsername || incomingCall?.sender}
         </div>
       </div>

@@ -238,7 +238,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           </Button>
           <div className="flex flex-col">
             <h1 className="font-bold text-lg leading-tight text-zinc-100 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-slow"></span>
+              <span className="w-2.5 h-2.5 bg-emerald-500 animate-pixel-flame"></span>
               {roomId.startsWith('private-') 
                 ? `Приватний чат з ${roomId.replace('private-', '').split('-').find(u => u !== username)}`
                 : `Кімната ${roomId}`

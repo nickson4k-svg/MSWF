@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, LogOut, LogIn, UserPlus } from 'lucide-react';
+import { MessageSquare, LogOut, LogIn, UserPlus, Camera, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { FriendList } from '@/components/friends/FriendList';
 import { InstallAppButton } from '@/components/InstallAppButton';
@@ -13,8 +13,11 @@ import { InstallAppButton } from '@/components/InstallAppButton';
 export default function Home() {
   const router = useRouter();
   const [username, setUsername] = useState<string | null>(null);
+  const [avatar, setAvatar] = useState<string | null>(null);
   const [roomId, setRoomId] = useState('');
   const [isMounted, setIsMounted] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -23,7 +26,10 @@ export default function Home() {
       .then(res => res.json())
       .then(data => {
         if (!mounted) return;
-        if (data.username) setUsername(data.username);
+        if (data.username) {
+          setUsername(data.username);
+          if (data.avatar) setAvatar(data.avatar);
+        }
       })
       .catch(() => {});
     return () => { mounted = false; };
@@ -44,6 +50,47 @@ export default function Home() {
   const handleCreateNew = () => {
     const newRoomId = Math.random().toString(36).substring(2, 9);
     router.push(`/chat/${newRoomId}`);
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const bitmap = await createImageBitmap(file);
+      const canvas = document.createElement('canvas');
+      const MAX_SIZE = 128;
+      let width = bitmap.width;
+      let height = bitmap.height;
+
+      // Make it a square by cropping the center
+      const size = Math.min(width, height);
+      const startX = (width - size) / 2;
+      const startY = (height - size) / 2;
+
+      canvas.width = MAX_SIZE;
+      canvas.height = MAX_SIZE;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('No canvas context');
+
+      ctx.drawImage(bitmap, startX, startY, size, size, 0, 0, MAX_SIZE, MAX_SIZE);
+      const base64Avatar = canvas.toDataURL('image/webp', 0.8);
+
+      const res = await fetch('/api/auth/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar: base64Avatar })
+      });
+
+      if (res.ok) {
+        setAvatar(base64Avatar);
+      }
+    } catch (err) {
+      console.error('Failed to change avatar', err);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   if (!isMounted) return null;
@@ -69,8 +116,32 @@ export default function Home() {
             </Button>
           )}
 
-          <div className="mx-auto w-16 h-16 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg transform transition hover:scale-105 mt-4">
-            <MessageSquare className="w-8 h-8 text-white" />
+          <div 
+            onClick={() => username && fileInputRef.current?.click()}
+            className={`mx-auto w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transform transition mt-4 relative group ${username ? 'cursor-pointer hover:scale-105' : 'bg-gradient-to-tr from-blue-600 to-purple-600'}`}
+          >
+            {avatar ? (
+              <img src={avatar} alt="Avatar" className="w-full h-full object-cover rounded-2xl" />
+            ) : username ? (
+              <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`} alt="Avatar" className="w-full h-full object-cover rounded-2xl bg-zinc-800" />
+            ) : (
+              <MessageSquare className="w-8 h-8 text-white" />
+            )}
+            
+            {username && (
+              <>
+                <div className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  {isUploading ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-6 h-6 text-white" />}
+                </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handleAvatarChange} 
+                />
+              </>
+            )}
           </div>
           <div className="space-y-2">
             <CardTitle className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">
