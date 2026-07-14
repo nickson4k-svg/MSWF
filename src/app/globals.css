@@ -144,6 +144,28 @@
     background: radial-gradient(circle at top, #13141f 0%, #09090b 100%);
     background-attachment: fixed;
   }
+  .light body {
+    background: radial-gradient(circle at top, #ffffff 0%, #f4f4f5 100%);
+  }
+}
+
+.light {
+  /* Invert base variables */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  
+  /* Invert zinc colors for effortless light mode */
+  --color-zinc-950: #f4f4f5;
+  --color-zinc-900: #ffffff;
+  --color-zinc-800: #e4e4e7;
+  --color-zinc-700: #d4d4d8;
+  --color-zinc-600: #a1a1aa;
+  --color-zinc-500: #71717a;
+  --color-zinc-400: #52525b;
+  --color-zinc-300: #3f3f46;
+  --color-zinc-200: #27272a;
+  --color-zinc-100: #18181b;
+  --color-zinc-50: #09090b;
 }
 
 /* Custom Scrollbar for sleekness */
