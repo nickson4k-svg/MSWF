@@ -270,7 +270,7 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     } else {
       // Start sharing
       try {
-        const stream = await startScreenShare(pcRef.current);
+        const stream = await startScreenShare(pcRef.current, localStream);
         setScreenStream(stream);
         setIsScreenSharing(true);
         

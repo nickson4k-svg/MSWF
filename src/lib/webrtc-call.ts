@@ -29,7 +29,7 @@ export const startCamera = async (video: boolean = true, audio: boolean = true):
   }
 };
 
-export const startScreenShare = async (pc: RTCPeerConnection): Promise<MediaStream> => {
+export const startScreenShare = async (pc: RTCPeerConnection, localStream: MediaStream | null): Promise<MediaStream> => {
   let screenStream: MediaStream;
   try {
     screenStream = await navigator.mediaDevices.getDisplayMedia({
@@ -52,11 +52,33 @@ export const startScreenShare = async (pc: RTCPeerConnection): Promise<MediaStre
     await videoSender.replaceTrack(videoTrack);
   }
 
-  const audioTrack = screenStream.getAudioTracks()[0];
-  if (audioTrack) {
+  const screenAudioTrack = screenStream.getAudioTracks()[0];
+  const micAudioTrack = localStream?.getAudioTracks()[0];
+
+  let finalAudioTrack = screenAudioTrack;
+
+  if (screenAudioTrack && micAudioTrack) {
+    try {
+      const audioCtx = new AudioContext();
+      const dest = audioCtx.createMediaStreamDestination();
+      
+      const screenSource = audioCtx.createMediaStreamSource(new MediaStream([screenAudioTrack]));
+      const micSource = audioCtx.createMediaStreamSource(new MediaStream([micAudioTrack]));
+      
+      screenSource.connect(dest);
+      micSource.connect(dest);
+      
+      finalAudioTrack = dest.stream.getAudioTracks()[0];
+      (finalAudioTrack as any)._audioCtx = audioCtx; // store to clean up later
+    } catch (e) {
+      console.warn('Failed to mix audio streams, falling back to screen audio only', e);
+    }
+  }
+
+  if (finalAudioTrack) {
     const audioSender = senders.find(sender => sender.track?.kind === 'audio');
     if (audioSender) {
-      await audioSender.replaceTrack(audioTrack);
+      await audioSender.replaceTrack(finalAudioTrack);
     }
   }
 
@@ -78,7 +100,12 @@ export const stopScreenShare = async (pc: RTCPeerConnection, cameraStream: Media
     const camAudio = cameraStream.getAudioTracks()[0];
     if (camAudio) {
       const aSender = senders.find(s => s.track?.kind === 'audio');
-      if (aSender) await aSender.replaceTrack(camAudio);
+      if (aSender) {
+        if ((aSender.track as any)?._audioCtx) {
+          (aSender.track as any)._audioCtx.close().catch(console.error);
+        }
+        await aSender.replaceTrack(camAudio);
+      }
     }
   }
 };
