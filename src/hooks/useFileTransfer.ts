@@ -137,6 +137,7 @@ export const useFileTransfer = (
     connectionsRef.current[transferId] = pc;
 
     const dataChannel = pc.createDataChannel('fileTransfer', { ordered: true });
+    dataChannel.binaryType = 'arraybuffer';
     channelsRef.current[transferId] = dataChannel;
 
     pc.onicecandidate = (event) => {
@@ -218,6 +219,7 @@ export const useFileTransfer = (
 
     pc.ondatachannel = (event) => {
       const dataChannel = event.channel;
+      dataChannel.binaryType = 'arraybuffer';
       channelsRef.current[id] = dataChannel;
       
       dataChannel.onopen = () => {

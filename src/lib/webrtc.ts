@@ -118,6 +118,7 @@ export const receiveFileOverChannel = (
   let meta: FileMeta | null = null;
   const chunks: ArrayBuffer[] = [];
   let writable: FileSystemWritableFileStream | null = null;
+  let writeQueue = Promise.resolve();
 
   dataChannel.onmessage = async (event) => {
     if (typeof event.data === "string") {
@@ -138,8 +139,11 @@ export const receiveFileOverChannel = (
         }
       } else if (msg.type === "done") {
         if (writable) {
-          await writable.close();
-          onComplete(); // Successfully saved to disk
+          // Wait for all writes to finish
+          writeQueue = writeQueue.then(async () => {
+            await writable!.close();
+            onComplete();
+          });
         } else {
           // Fallback to Blob
           const blob = new Blob(chunks, { type: meta?.mimeType || 'application/octet-stream' });
@@ -149,7 +153,7 @@ export const receiveFileOverChannel = (
       }
     } else if (event.data instanceof ArrayBuffer) {
       if (writable) {
-        await writable.write(new Blob([event.data]));
+        writeQueue = writeQueue.then(() => writable!.write(event.data as ArrayBuffer)).catch(console.error);
       } else {
         chunks.push(event.data);
       }
