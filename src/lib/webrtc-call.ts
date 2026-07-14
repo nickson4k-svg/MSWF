@@ -12,7 +12,7 @@ export const startCamera = async (video: boolean = true, audio: boolean = true):
   }
   try {
     return await navigator.mediaDevices.getUserMedia({
-      video: video ? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+      video: video ? { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 } } : false,
       audio: audio ? { echoCancellation: true, noiseSuppression: true } : false
     });
   } catch (err) {
