@@ -22,7 +22,7 @@ export async function GET() {
   try {
     const profile = await redis.hgetall(`profile:${username}`);
     if (profile && profile.avatar) {
-      avatar = profile.avatar;
+      avatar = profile.avatar as string;
     }
   } catch (err) {
     console.error('Redis error', err);
