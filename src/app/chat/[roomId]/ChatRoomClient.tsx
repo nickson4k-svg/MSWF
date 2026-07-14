@@ -12,6 +12,9 @@ import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { FileTransferSidebar } from '@/components/chat/FileTransferSidebar';
 import { FileTransferModal } from '@/components/chat/FileTransferModal';
 import { FileMessage } from '@/components/chat/FileMessage';
+import { useCall } from '@/hooks/useCall';
+import { CallScreen } from '@/components/call/CallScreen';
+import { Video as VideoIcon } from 'lucide-react';
 interface Message {
   id: string;
   text: string;
@@ -65,6 +68,23 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const targetUsername = roomId.startsWith('private-') 
     ? roomId.replace('private-', '').split('-').find(u => u !== username) 
     : undefined;
+
+  const {
+    callState,
+    incomingCall,
+    localStream,
+    remoteStream,
+    isMuted,
+    isVideoOff,
+    isScreenSharing,
+    startCall,
+    acceptCall,
+    rejectCall,
+    endCall,
+    toggleMute,
+    toggleVideo,
+    toggleScreenShare
+  } = useCall(username, targetUsername, roomId);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -160,6 +180,22 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           onReject={rejectOffer}
         />
       )}
+      <CallScreen
+        callState={callState}
+        incomingCall={incomingCall}
+        localStream={localStream}
+        remoteStream={remoteStream}
+        isMuted={isMuted}
+        isVideoOff={isVideoOff}
+        isScreenSharing={isScreenSharing}
+        targetUsername={targetUsername}
+        onAccept={acceptCall}
+        onReject={rejectCall}
+        onEnd={endCall}
+        onToggleMute={toggleMute}
+        onToggleVideo={toggleVideo}
+        onToggleScreenShare={toggleScreenShare}
+      />
       <div 
         className="w-full max-w-[95rem] flex h-[100dvh] md:h-[calc(100dvh-4rem)] md:my-8 mx-auto md:gap-4 relative px-2 md:px-4"
         onDragOver={handleDragOver}
@@ -213,21 +249,34 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             </p>
           </div>
         </div>
-        {!roomId.startsWith('private-') && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={copyLink} 
-            className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-full px-4 transition-all"
-          >
-            {copied ? (
-              <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" />
-            ) : (
-              <Copy className="w-4 h-4 mr-2" />
-            )}
-            {copied ? 'Скопійовано' : 'Поділитися'}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {targetUsername && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => startCall(targetUsername)}
+              className="rounded-full hover:bg-zinc-800 text-blue-400 hover:text-blue-300 transition-colors bg-blue-500/10"
+              title="Відеодзвінок"
+            >
+              <VideoIcon className="w-5 h-5" />
+            </Button>
+          )}
+          {!roomId.startsWith('private-') && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={copyLink} 
+              className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-full px-4 transition-all"
+            >
+              {copied ? (
+                <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" />
+              ) : (
+                <Copy className="w-4 h-4 mr-2" />
+              )}
+              {copied ? 'Скопійовано' : 'Поділитися'}
+            </Button>
+          )}
+        </div>
       </header>
 
       {/* Chat Area */}
