@@ -151,13 +151,19 @@ export const receiveFileOverChannel = (
           onComplete(url);
         }
       }
-    } else if (event.data instanceof ArrayBuffer) {
+    } else {
+      // It's binary data (ArrayBuffer, Blob, or Uint8Array)
+      const data = event.data;
       if (writable) {
-        writeQueue = writeQueue.then(() => writable!.write(event.data as ArrayBuffer)).catch(console.error);
+        writeQueue = writeQueue.then(() => writable!.write(data)).catch(console.error);
       } else {
-        chunks.push(event.data);
+        chunks.push(data);
       }
-      receivedBytes += event.data.byteLength;
+      
+      // Calculate byte length safely for both Blob and ArrayBuffer
+      const size = data.byteLength || data.size || 0;
+      receivedBytes += size;
+      
       if (meta && meta.fileSize > 0) {
         onProgress(Math.floor((receivedBytes / meta.fileSize) * 100));
       }
