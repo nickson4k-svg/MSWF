@@ -19,6 +19,7 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const currentCallIdRef = useRef<string | null>(null);
+  const iceCandidateQueue = useRef<RTCIceCandidateInit[]>([]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -54,6 +55,16 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
         if (pcRef.current) {
           await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload));
           setCallState('connected');
+          
+          // Process queued ICE candidates
+          for (const candidate of iceCandidateQueue.current) {
+            try {
+              await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (e) {
+              console.error('Error adding queued ICE candidate', e);
+            }
+          }
+          iceCandidateQueue.current = [];
         }
       }
 
@@ -64,6 +75,8 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
           } catch (e) {
             console.error('Error adding ICE candidate', e);
           }
+        } else {
+          iceCandidateQueue.current.push(payload);
         }
       }
 
@@ -101,7 +114,13 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     };
 
     pc.ontrack = (event) => {
-      setRemoteStream(event.streams[0]);
+      setRemoteStream(prev => {
+        if (prev) {
+          // If we already have a stream, just return it (browser updates it internally)
+          return prev;
+        }
+        return event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+      });
     };
 
     return pc;
@@ -116,6 +135,10 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     const stream = await initLocalStream();
     const pc = setupPeerConnection(callId, target);
     stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+    // Ensure we can receive media even if our local stream is empty (fallback mode)
+    if (stream.getAudioTracks().length === 0) pc.addTransceiver('audio', { direction: 'recvonly' });
+    if (stream.getVideoTracks().length === 0) pc.addTransceiver('video', { direction: 'recvonly' });
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -140,7 +163,22 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     const pc = setupPeerConnection(callId, sender);
     stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
+    // Ensure we can receive media even if our local stream is empty (fallback mode)
+    if (stream.getAudioTracks().length === 0) pc.addTransceiver('audio', { direction: 'recvonly' });
+    if (stream.getVideoTracks().length === 0) pc.addTransceiver('video', { direction: 'recvonly' });
+
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    
+    // Process queued ICE candidates
+    for (const candidate of iceCandidateQueue.current) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (e) {
+        console.error('Error adding queued ICE candidate', e);
+      }
+    }
+    iceCandidateQueue.current = [];
+
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
 
@@ -167,6 +205,7 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     setIncomingCall(null);
     setCallState('idle');
     currentCallIdRef.current = null;
+    iceCandidateQueue.current = [];
   };
 
   const endCall = async () => {
@@ -203,6 +242,7 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     setCallState('idle');
     setIncomingCall(null);
     currentCallIdRef.current = null;
+    iceCandidateQueue.current = [];
   };
 
   const toggleMute = () => {
