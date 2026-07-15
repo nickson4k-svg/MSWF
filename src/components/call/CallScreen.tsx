@@ -64,6 +64,7 @@ export const CallScreen = ({
   incomingCall,
   localStream,
   remoteStream,
+  screenStream,
   isMuted,
   isVideoOff,
   isScreenSharing,
@@ -82,6 +83,7 @@ export const CallScreen = ({
   incomingCall: { sender: string } | null;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
+  screenStream: MediaStream | null;
   isMuted: boolean;
   isVideoOff: boolean;
   isScreenSharing: boolean;

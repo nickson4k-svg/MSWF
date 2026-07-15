@@ -321,38 +321,37 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
 
 
 
-  const toggleMute = () => {
+  const toggleMute = useCallback(() => {
     if (localStream) {
       localStream.getAudioTracks().forEach(t => t.enabled = !t.enabled);
       setIsMuted(!localStream.getAudioTracks()[0]?.enabled);
     }
-  };
+  }, [localStream]);
 
-  const toggleVideo = () => {
+  const toggleVideo = useCallback(() => {
     if (localStream) {
       localStream.getVideoTracks().forEach(t => t.enabled = !t.enabled);
       setIsVideoOff(!localStream.getVideoTracks()[0]?.enabled);
     }
-  };
+  }, [localStream]);
 
-  const toggleScreenShare = async () => {
+  const toggleScreenShare = useCallback(async () => {
     if (!pcRef.current) return;
     
     if (isScreenSharing && screenStream) {
-      // Stop sharing
       await stopScreenShare(pcRef.current, localStream, screenStream);
       setScreenStream(null);
       setIsScreenSharing(false);
     } else {
-      // Start sharing
       try {
         const stream = await startScreenShare(pcRef.current, localStream);
         setScreenStream(stream);
         setIsScreenSharing(true);
         
-        // Handle stop from browser UI
         stream.getVideoTracks()[0].onended = () => {
-          stopScreenShare(pcRef.current!, localStream, stream);
+          if (pcRef.current) {
+            stopScreenShare(pcRef.current, localStream, stream);
+          }
           setScreenStream(null);
           setIsScreenSharing(false);
         };
@@ -360,7 +359,7 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
         console.error('Failed to start screen share', err);
       }
     }
-  };
+  }, [isScreenSharing, screenStream, localStream]);
 
 
 

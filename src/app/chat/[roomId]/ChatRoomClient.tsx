@@ -285,7 +285,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     endCall,
     toggleMute,
     toggleVideo,
-    toggleScreenShare
+    toggleScreenShare,
+    screenStream,
+    networkQuality
   } = useCall(username, targetUsername);
 
   // Feature 15: Fetch target presence periodically
@@ -716,6 +718,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         onToggleVideo={toggleVideo}
         onToggleScreenShare={toggleScreenShare}
         peerConnection={peerConnection}
+        screenStream={screenStream}
+        networkQuality={networkQuality}
       />
       <div 
         className="w-full max-w-[95rem] flex h-[100dvh] md:h-[calc(100dvh-4rem)] md:my-8 mx-auto md:gap-4 relative px-2 md:px-4"
