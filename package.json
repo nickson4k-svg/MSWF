@@ -18,6 +18,8 @@
     "dexie": "^4.4.4",
     "emoji-picker-react": "^4.19.1",
     "jose": "^6.2.3",
+    "livekit-client": "^2.20.1",
+    "livekit-server-sdk": "^2.17.0",
     "lucide-react": "^1.24.0",
     "next": "16.2.10",
     "pusher": "^5.3.4",
