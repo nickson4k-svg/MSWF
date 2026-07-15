@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Nexus Chat",
+  title: "ALa Chat",
   description: "Миттєвий та безпечний месенджер",
   manifest: "/manifest.json",
 };
