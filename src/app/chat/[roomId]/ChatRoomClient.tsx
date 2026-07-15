@@ -6,7 +6,7 @@ import { getPusherClient, sanitizeChannelName } from '@/lib/pusher';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Copy, ArrowLeft, CheckCircle2, Video as VideoIcon, Reply, X, Check, CheckCheck } from 'lucide-react';
-import { format, isToday, isYesterday, isSameDay } from 'date-fns';
+import { format, isToday, isYesterday, isSameDay, formatDistanceToNow } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { FriendList } from '@/components/friends/FriendList';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
@@ -18,9 +18,10 @@ import { CallScreen } from '@/components/call/CallScreen';
 import { parseMarkdown } from '@/lib/markdown';
 import { LinkPreview } from '@/components/chat/LinkPreview';
 import { Timer, Clock, Mic, Square } from 'lucide-react';
-import { getCachedMessages, cacheMessages, cleanExpiredMessages } from '@/lib/db';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { generateKeyFromRoomId, encryptText, decryptText } from '@/lib/e2ee';
+import EmojiPicker, { Theme } from 'emoji-picker-react';
+import { getCachedMessages, cacheMessages, cleanExpiredMessages } from '@/lib/db';
 
 interface Message {
   id: string;
@@ -40,6 +41,22 @@ interface Message {
 function extractFirstUrl(text: string): string | null {
   const match = text.match(/https?:\/\/[^\s<]+/);
   return match ? match[0] : null;
+}
+
+// Feature 16: Helper for VAPID key
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
 }
 
 // Feature 20: TTL options
@@ -65,9 +82,18 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [copied, setCopied] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false); // Feature 13: Emoji Picker
   const [isOnline, setIsOnline] = useState(true); // Feature 13: Offline Queue
+  
+  // Feature 15: Last Seen tracking
+  const [targetPresence, setTargetPresence] = useState<{ isOnline: boolean; lastSeen: number | null }>({ isOnline: false, lastSeen: null });
   const [offlineQueue, setOfflineQueue] = useState<any[]>([]);
   const offlineQueueRef = useRef<any[]>([]);
+  
+  // Feature 12: Context Menu and Selection
+  const [contextMenu, setContextMenu] = useState<{ msg: Message, x: number, y: number } | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     offlineQueueRef.current = offlineQueue;
@@ -166,6 +192,28 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       console.error('Failed to send:', err);
     }
   };
+  const isSameDay = (d1: Date, d2: Date) => {
+    return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+  };
+
+  const getDateLabel = (date: Date) => {
+    if (isToday(date)) return 'Сьогодні';
+    if (isYesterday(date)) return 'Вчора';
+    return format(date, 'dd.MM.yyyy');
+  };
+
+  const getReplyMessage = (replyId: string) => {
+    return messages.find(m => m.id === replyId);
+  };
+
+  const scrollToMessage = (msgId: string) => {
+    const el = document.getElementById(`msg-${msgId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('bg-zinc-800/80');
+      setTimeout(() => el.classList.remove('bg-zinc-800/80'), 2000);
+    }
+  };
 
   const startVoiceRecording = async () => {
     try {
@@ -238,7 +286,62 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     toggleMute,
     toggleVideo,
     toggleScreenShare
-  } = useCall(username, targetUsername, roomId);
+  } = useCall(username, targetUsername);
+
+  // Feature 15: Fetch target presence periodically
+  useEffect(() => {
+    if (!targetUsername) return;
+    
+    const fetchPresence = async () => {
+      try {
+        const res = await fetch(`/api/presence?username=${targetUsername}`);
+        if (res.ok) {
+          const data = await res.json();
+          setTargetPresence(data);
+        }
+      } catch (e) {}
+    };
+    
+    fetchPresence();
+    const interval = setInterval(fetchPresence, 30000); // Check every 30s
+    return () => clearInterval(interval);
+  }, [targetUsername]);
+
+  // Feature 16: Web Push Subscription
+  useEffect(() => {
+    async function setupPush() {
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        try {
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          let subscription = await registration.pushManager.getSubscription();
+          
+          if (!subscription && Notification.permission !== 'denied') {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+              const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+              if (publicKey) {
+                subscription = await registration.pushManager.subscribe({
+                  userVisibleOnly: true,
+                  applicationServerKey: urlBase64ToUint8Array(publicKey)
+                });
+              }
+            }
+          }
+          
+          if (subscription) {
+            await fetch('/api/push/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(subscription)
+            });
+          }
+        } catch (e) {
+          console.error('Service Worker setup failed:', e);
+        }
+      }
+    }
+    setupPush();
+  }, []);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -342,7 +445,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           } else {
             // Update existing in case it was a large message placeholder
             const idx = merged.findIndex(x => x.id === m.id);
-            if (idx !== -1 && (merged[idx] as any).isLarge) {
+            if (idx !== -1 && (merged[idx] as Message & { isLarge?: boolean }).isLarge) {
               merged[idx] = m;
             }
           }
@@ -395,7 +498,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     const channelName = `room-${sanitizeChannelName(roomId)}`;
     const channel = client.subscribe(channelName);
 
-    channel.bind('incoming-message', async (newMessage: any) => {
+    channel.bind('incoming-message', async (newMessage: Message & { isLarge?: boolean }) => {
       if (newMessage.isLarge) {
         // Fetch full payload from history API
         syncHistory(e2eKeyRef.current);
@@ -405,7 +508,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       // Feature 12: Cache RAW new message
       cacheMessages([newMessage]);
 
-      let dispMessage = { ...newMessage };
+      const dispMessage = { ...newMessage };
       // Feature 9: Decrypt incoming E2E message
       if (dispMessage.text.startsWith('E2E:') && e2eKeyRef.current) {
         dispMessage.text = await decryptText(dispMessage.text.substring(4), e2eKeyRef.current);
@@ -577,18 +680,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Feature 15: scroll to replied message
-  const scrollToMessage = (msgId: string) => {
-    const el = document.getElementById(`msg-${msgId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.classList.add('ring-2', 'ring-blue-500/50');
-      setTimeout(() => el.classList.remove('ring-2', 'ring-blue-500/50'), 2000);
-    }
-  };
 
-  // Feature 4: group messages by date
-  const getReplyMessage = (id: string) => messages.find(m => m.id === id);
 
   if (!username) return null;
 
@@ -673,10 +765,18 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                 : `Кімната ${roomId}`
               }
             </h1>
-            {/* Feature 2: Typing indicator */}
+            {/* Feature 2: Typing indicator & Feature 15: Last Seen */}
             <p className="text-xs text-zinc-400 font-medium h-4">
               {typingText ? (
                 <span className="text-blue-400 animate-pulse">{typingText}</span>
+              ) : targetUsername ? (
+                targetPresence.isOnline ? (
+                  <span className="text-emerald-500 font-semibold">В мережі</span>
+                ) : targetPresence.lastSeen ? (
+                  <span>Був(ла) {formatDistanceToNow(targetPresence.lastSeen, { addSuffix: true, locale: uk })}</span>
+                ) : (
+                  <span>Офлайн</span>
+                )
               ) : (
                 <>Ви увійшли як <span className="text-blue-400">{username}</span></>
               )}
@@ -715,7 +815,11 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       </header>
 
       {/* Chat Area */}
-      <div ref={chatAreaRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-1 scroll-smooth">
+      <div 
+        ref={chatAreaRef} 
+        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-1 scroll-smooth"
+        onClick={() => setContextMenu(null)}
+      >
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-4 animate-fade-in opacity-50">
             <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
@@ -760,7 +864,14 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                   <div className="flex-1 h-px bg-zinc-800/60" />
                 </div>
               )}
-              <div id={`msg-${msg.id}`} className={`flex flex-col w-full transition-all duration-300 rounded-xl ${isMe ? 'items-end' : 'items-start'} ${showSender ? 'mt-4' : 'mt-0.5'}`}>
+              <div 
+                id={`msg-${msg.id}`} 
+                className={`flex flex-col w-full transition-all duration-300 rounded-xl ${isMe ? 'items-end' : 'items-start'} ${showSender ? 'mt-4' : 'mt-0.5'}`}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setContextMenu({ msg, x: e.clientX, y: e.clientY });
+                }}
+              >
                 {!isMe && showSender && (
                   <span className="text-[11px] font-medium text-zinc-500 mb-1.5 ml-2">{msg.sender}</span>
                 )}
@@ -780,38 +891,20 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                 )}
 
                 <div className="group relative flex items-end gap-2 max-w-[85%] sm:max-w-[70%]">
-                  {/* Edit/Delete Actions for Own Messages */}
-                  {isMe && !msg.isDeleted && (
-                    <div className="absolute top-0 right-0 -mt-10 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl flex z-20 overflow-hidden">
-                      <button 
-                        onClick={() => {
-                          let plainText = msg.text;
-                          if (plainText.startsWith('E2E:') && e2eKeyRef.current) {
-                            // If it's encrypted, we need the original text. We rely on the decrypted view.
-                            // But wait, the msg.text in state is already decrypted!
-                          }
-                          setEditingMsg(msg);
-                          setInputText(msg.text);
-                          inputRef.current?.focus();
-                        }}
-                        className="px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 hover:text-white border-r border-zinc-700 transition-colors"
-                      >
-                        Редагувати
-                      </button>
-                      <button 
-                        onClick={() => {
-                          if (confirm('Видалити повідомлення?')) {
-                            fetch('/api/messages/action', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ action: 'delete', msgId: msg.id, roomId })
-                            });
-                          }
-                        }}
-                        className="px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
-                      >
-                        Видалити
-                      </button>
+                  {selectionMode && (
+                    <div 
+                      className={`w-5 h-5 rounded border flex-shrink-0 cursor-pointer flex items-center justify-center mr-2 ${selectedMessages.has(msg.id) ? 'bg-blue-500 border-blue-500' : 'border-zinc-600 bg-zinc-800'}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMessages(prev => {
+                          const next = new Set(prev);
+                          if (next.has(msg.id)) next.delete(msg.id);
+                          else next.add(msg.id);
+                          return next;
+                        });
+                      }}
+                    >
+                      {selectedMessages.has(msg.id) && <Check className="w-3 h-3 text-white" />}
                     </div>
                   )}
                   
@@ -871,7 +964,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                       {msg.reactions && Object.keys(msg.reactions).length > 0 && (
                         <div className={`absolute -bottom-3 flex items-center gap-1 ${isMe ? 'right-2' : 'left-2'}`}>
                           {Object.entries(
-                            Object.values(msg.reactions).reduce((acc, emoji) => {
+                            Object.values(msg.reactions).reduce((acc: Record<string, number>, emoji: string) => {
                               acc[emoji] = (acc[emoji] || 0) + 1;
                               return acc;
                             }, {} as Record<string, number>)
@@ -921,6 +1014,94 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         <div ref={scrollRef} className="h-4" />
       </div>
 
+      {/* Feature 12: Context Menu */}
+      {contextMenu && (
+        <div 
+          className="fixed z-50 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden min-w-[160px] animate-in fade-in zoom-in-95 duration-100"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onMouseLeave={() => setContextMenu(null)}
+        >
+          <button 
+            className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
+            onClick={() => { setReplyTo(contextMenu.msg); setContextMenu(null); inputRef.current?.focus(); }}
+          >
+            Відповісти
+          </button>
+          <button 
+            className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
+            onClick={() => { navigator.clipboard.writeText(contextMenu.msg.text); setCopied(true); setTimeout(()=>setCopied(false), 2000); setContextMenu(null); }}
+          >
+            Копіювати текст
+          </button>
+          <button 
+            className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
+            onClick={() => { setSelectionMode(true); setSelectedMessages(new Set([contextMenu.msg.id])); setContextMenu(null); }}
+          >
+            Вибрати кілька
+          </button>
+          
+          {contextMenu.msg.sender === username && !contextMenu.msg.isDeleted && (
+            <>
+              <div className="h-px bg-zinc-800 w-full" />
+              <button 
+                className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
+                onClick={() => { setEditingMsg(contextMenu.msg); setInputText(contextMenu.msg.text); setContextMenu(null); inputRef.current?.focus(); }}
+              >
+                Редагувати
+              </button>
+              <button 
+                className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                onClick={() => {
+                  if (confirm('Видалити повідомлення?')) {
+                    fetch('/api/messages/action', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'delete', msgId: contextMenu.msg.id, roomId })
+                    });
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                Видалити
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Feature 12: Selection Action Bar */}
+      {selectionMode && (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-40 bg-zinc-900 border border-zinc-800 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-4 animate-slide-up">
+          <span className="text-sm font-medium text-blue-400">{selectedMessages.size} вибрано</span>
+          <div className="h-4 w-px bg-zinc-700"></div>
+          <button 
+            className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors"
+            onClick={() => {
+              if (confirm(`Видалити ${selectedMessages.size} повідомлень?`)) {
+                Array.from(selectedMessages).forEach(msgId => {
+                  fetch('/api/messages/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', msgId, roomId })
+                  });
+                });
+                setSelectionMode(false);
+                setSelectedMessages(new Set());
+              }
+            }}
+          >
+            Видалити
+          </button>
+          <div className="h-4 w-px bg-zinc-700"></div>
+          <button 
+            className="text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+            onClick={() => { setSelectionMode(false); setSelectedMessages(new Set()); }}
+          >
+            Скасувати
+          </button>
+        </div>
+      )}
+
       {/* Input Area */}
       <footer className="p-3 sm:p-6 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800/60 z-10" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
         {/* Feature 15: Reply bar */}
@@ -962,6 +1143,32 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
               </div>
             )}
           </div>
+          
+          {/* Feature 13: Emoji Picker */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all ${showEmojiPicker ? 'bg-blue-500/20 text-blue-400' : 'bg-zinc-900/80 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'}`}
+              title="Емодзі"
+            >
+              <span className="text-xl">😀</span>
+            </button>
+            {showEmojiPicker && (
+              <div className="absolute bottom-14 left-0 z-20 animate-slide-up shadow-2xl">
+                <EmojiPicker 
+                  onEmojiClick={(emojiData) => {
+                    setInputText(prev => prev + emojiData.emoji);
+                    setShowEmojiPicker(false);
+                    inputRef.current?.focus();
+                  }}
+                  theme={Theme.DARK}
+                  searchPlaceHolder="Пошук емодзі..."
+                />
+              </div>
+            )}
+          </div>
+
           <Input 
             ref={inputRef}
             value={inputText}

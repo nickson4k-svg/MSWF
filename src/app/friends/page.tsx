@@ -24,7 +24,7 @@ export default function FriendsPage() {
   };
 
   useEffect(() => {
-    fetchRequests();
+    setTimeout(() => fetchRequests(), 0);
   }, []);
 
   return (

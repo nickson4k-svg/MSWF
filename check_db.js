@@ -1,3 +1,4 @@
+/* eslint-disable */
 const { Redis } = require('@upstash/redis');
 const redis = new Redis({
   url: 'https://neutral-eel-145432.upstash.io',

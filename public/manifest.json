@@ -1,6 +1,6 @@
 {
-  "name": "Nexus Chat",
-  "short_name": "Nexus",
+  "name": "ALa Chat",
+  "short_name": "ALa",
   "description": "Secure, real-time messenger",
   "start_url": "/",
   "display": "standalone",

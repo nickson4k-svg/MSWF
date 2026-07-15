@@ -30,6 +30,7 @@ export async function GET(req: Request) {
       const friendUsername = f as string;
       const profileData = await redis.hgetall(`profile:${friendUsername}`);
       const presence = await redis.get(`presence:${friendUsername}`);
+      const lastSeenStr = await redis.get(`lastSeen:${friendUsername}`);
       const roomId = getPrivateRoomId(currentUser, friendUsername);
       const unreadCountStr = await redis.get(`unread:${roomId}:${currentUser}`);
       const unreadCount = unreadCountStr ? parseInt(unreadCountStr as string, 10) : 0;
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
         friendProfiles.push({
           ...(profileData as unknown as FriendProfile),
           isOnline: presence === 'online',
-          lastSeen: presence === 'online' ? new Date().toISOString() : undefined,
+          lastSeen: presence === 'online' ? new Date().toISOString() : (lastSeenStr ? new Date(parseInt(lastSeenStr as string)).toISOString() : undefined),
           unreadCount
         });
       }

@@ -4,7 +4,7 @@ export default async function ChatPage({ params }: { params: Promise<{ roomId: s
   const { roomId } = await params;
 
   // Без бази даних історія завжди порожня при завантаженні сторінки
-  const initialMessages: any[] = [];
+  const initialMessages: never[] = [];
 
   return <ChatRoomClient roomId={roomId} initialHistory={initialMessages} />;
 }

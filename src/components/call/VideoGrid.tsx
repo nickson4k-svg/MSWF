@@ -45,7 +45,7 @@ export const VideoGrid = ({
           <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mb-4">
             <span className="text-zinc-700 text-3xl">...</span>
           </div>
-          Очікування з'єднання...
+          Очікування з&apos;єднання...
         </div>
       )}
 

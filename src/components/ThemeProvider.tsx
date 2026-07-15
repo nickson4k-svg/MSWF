@@ -24,7 +24,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const saved = localStorage.getItem('nexus-theme') as Theme | null;
-    if (saved) setThemeState(saved);
+    if (saved) setTimeout(() => setThemeState(saved), 0);
   }, []);
 
   useEffect(() => {

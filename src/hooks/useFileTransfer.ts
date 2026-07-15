@@ -55,7 +55,7 @@ export const useFileTransfer = (
           id: transferId,
           sender: senderUsername,
           fileMeta,
-          offer: payload,
+          offer: payload as RTCSessionDescriptionInit,
           roomId
         });
       }
@@ -63,7 +63,7 @@ export const useFileTransfer = (
       if (type === 'answer') {
         const pc = connectionsRef.current[transferId];
         if (pc) {
-          await pc.setRemoteDescription(new RTCSessionDescription(payload));
+          await pc.setRemoteDescription(new RTCSessionDescription(payload as RTCSessionDescriptionInit));
         }
       }
 
@@ -71,7 +71,7 @@ export const useFileTransfer = (
         const pc = connectionsRef.current[transferId];
         if (pc && pc.remoteDescription) {
           try {
-            await pc.addIceCandidate(new RTCIceCandidate(payload));
+            await pc.addIceCandidate(new RTCIceCandidate(payload as RTCIceCandidateInit));
           } catch (e) {
             console.error('Error adding ICE candidate', e);
           }
@@ -92,7 +92,7 @@ export const useFileTransfer = (
     };
   }, [currentUser]);
 
-  const updateTransferStatus = (id: string, status: FileTransfer['status'], progress?: number, blobUrl?: string) => {
+  function updateTransferStatus(id: string, status: FileTransfer['status'], progress?: number, blobUrl?: string) {
     setTransfers(prev => prev.map(t => {
       if (t.id === id) {
         return { 
@@ -104,9 +104,9 @@ export const useFileTransfer = (
       }
       return t;
     }));
-  };
+  }
 
-  const cleanupConnection = (id: string) => {
+  function cleanupConnection(id: string) {
     const pc = connectionsRef.current[id];
     if (pc) {
       pc.close();
@@ -117,7 +117,7 @@ export const useFileTransfer = (
       dc.close();
       delete channelsRef.current[id];
     }
-  };
+  }
 
   const initiateTransfer = useCallback(async (file: File, targetUsername: string, roomId?: string) => {
     const transferId = Math.random().toString(36).substring(2, 10);
@@ -184,7 +184,7 @@ export const useFileTransfer = (
       roomId
     });
 
-  }, [currentUser]);
+  }, [currentUser, onTransferComplete]);
 
   const acceptOffer = useCallback(async () => {
     if (!pendingOffer) return;
@@ -250,7 +250,7 @@ export const useFileTransfer = (
       payload: answer
     });
 
-  }, [pendingOffer, currentUser]);
+  }, [pendingOffer, currentUser, onTransferComplete]);
 
   const rejectOffer = useCallback(async () => {
     if (!pendingOffer) return;

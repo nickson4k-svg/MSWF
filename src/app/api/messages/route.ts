@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { sanitizeChannelName } from '@/lib/pusher';
 import { redis } from '@/lib/redis';
+import webpush from 'web-push';
 
 export async function POST(req: Request) {
   try {
@@ -59,11 +60,11 @@ export async function POST(req: Request) {
       // Keep only the last 1000 messages per room to avoid memory leaks
       await redis.ltrim(`messages:${roomId}`, -1000, -1);
 
-      let pusherMessage = { ...message };
+      const pusherMessage = { ...message };
       // Pusher has a 10KB limit. If text is too large (like Base64 voice/video), strip it for the realtime event
       if (JSON.stringify(pusherMessage).length > 8000) {
         pusherMessage.text = '[Велике повідомлення]';
-        (pusherMessage as any).isLarge = true;
+        pusherMessage.isLarge = true;
       }
 
       // Trigger Pusher event
@@ -75,6 +76,32 @@ export async function POST(req: Request) {
         const target = parts.find((u: string) => u !== sender);
         if (target) {
           await redis.incr(`unread:${roomId}:${target}`);
+          
+          // Feature 16: Web Push Notifications
+          try {
+            const subStr = await redis.get(`push_subs:${target}`);
+            if (subStr && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+              const sub = typeof subStr === 'string' ? JSON.parse(subStr) : subStr;
+              webpush.setVapidDetails(
+                'mailto:admin@nexus.chat',
+                process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+                process.env.VAPID_PRIVATE_KEY
+              );
+              
+              let pushBody = message.text as string;
+              if (pushBody.startsWith('E2E:')) pushBody = '🔒 Зашифроване повідомлення';
+              else if (pushBody.startsWith('{"type":"file-transfer')) pushBody = '📁 Передача файлу';
+              else if (pushBody.length > 50) pushBody = pushBody.substring(0, 50) + '...';
+              
+              await webpush.sendNotification(sub, JSON.stringify({
+                title: `Нове повідомлення від ${sender}`,
+                body: pushBody,
+                url: `/chat/${roomId}`
+              }));
+            }
+          } catch (e) {
+            console.error('Push Notification Error:', e);
+          }
         }
       }
     } catch (pusherErr) {

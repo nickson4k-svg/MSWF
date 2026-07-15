@@ -1,4 +1,4 @@
-import { WebRTCSignal, createPeerConnection } from './webrtc';
+import { WebRTCSignal } from './webrtc';
 
 export interface CallSignal extends WebRTCSignal {
   isCallSignal: true;
@@ -36,7 +36,7 @@ export const startScreenShare = async (pc: RTCPeerConnection, localStream: Media
       video: { displaySurface: 'monitor' },
       audio: true 
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Fallback if browser doesn't support audio sharing
     console.warn('Could not get display media with audio, trying video only.', err);
     screenStream = await navigator.mediaDevices.getDisplayMedia({
@@ -69,7 +69,7 @@ export const startScreenShare = async (pc: RTCPeerConnection, localStream: Media
       micSource.connect(dest);
       
       finalAudioTrack = dest.stream.getAudioTracks()[0];
-      (finalAudioTrack as any)._audioCtx = audioCtx; // store to clean up later
+      (finalAudioTrack as MediaStreamTrack & { _audioCtx?: AudioContext })._audioCtx = audioCtx; // store to clean up later
     } catch (e) {
       console.warn('Failed to mix audio streams, falling back to screen audio only', e);
     }
@@ -101,8 +101,8 @@ export const stopScreenShare = async (pc: RTCPeerConnection, cameraStream: Media
     if (camAudio) {
       const aSender = senders.find(s => s.track?.kind === 'audio');
       if (aSender) {
-        if ((aSender.track as any)?._audioCtx) {
-          (aSender.track as any)._audioCtx.close().catch(console.error);
+        if ((aSender.track as MediaStreamTrack & { _audioCtx?: AudioContext })?._audioCtx) {
+          (aSender.track as MediaStreamTrack & { _audioCtx?: AudioContext })._audioCtx?.close().catch(console.error);
         }
         await aSender.replaceTrack(camAudio);
       }

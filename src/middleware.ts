@@ -44,7 +44,7 @@ export async function middleware(request: NextRequest) {
           }
         }
       }
-    } catch (err) {
+    } catch {
       // Недійсний або прострочений токен
       const loginUrl = new URL('/login', request.url);
       return NextResponse.redirect(loginUrl);
@@ -58,7 +58,7 @@ export async function middleware(request: NextRequest) {
         await jwtVerify(token, encodedSecret);
         const homeUrl = new URL('/', request.url);
         return NextResponse.redirect(homeUrl);
-      } catch (err) {
+      } catch {
         // Прострочений токен ігноруємо
       }
     }

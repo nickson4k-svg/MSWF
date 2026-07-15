@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getPusherClient } from '@/lib/pusher';
 import { createPeerConnection, sendSignal } from '@/lib/webrtc';
 import { startCamera, startScreenShare, stopScreenShare, CallSignal } from '@/lib/webrtc-call';
 
 export type CallState = 'idle' | 'calling' | 'ringing' | 'connected' | 'ended';
 
-export const useCall = (currentUser: string, targetUsername?: string, roomId?: string) => {
+export const useCall = (currentUser: string, targetUsername?: string) => {
   const [callState, setCallState] = useState<CallState>('idle');
   const [incomingCall, setIncomingCall] = useState<{ sender: string; offer: RTCSessionDescriptionInit, callId: string } | null>(null);
   
@@ -25,6 +25,111 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
   // Feature 10: Adaptive Bitrate tracking
   const [networkQuality, setNetworkQuality] = useState<'Good' | 'Fair' | 'Poor'>('Good');
 
+  const endCall = useCallback(async () => {
+    if (currentCallIdRef.current && (callState === 'connected' || callState === 'calling')) {
+      // Send reject/end to peer
+      const target = incomingCall ? incomingCall.sender : targetUsername;
+      if (target) {
+        await sendSignal({
+          targetUsername: target,
+          senderUsername: currentUser,
+          type: 'reject', // acts as end
+          transferId: currentCallIdRef.current,
+          isCallSignal: true
+        } as CallSignal);
+      }
+    }
+
+    if (pcRef.current) {
+      pcRef.current.close();
+      pcRef.current = null;
+    }
+    
+    if (statsIntervalRef.current) {
+      clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
+    }
+    
+    if (localStream) {
+      localStream.getTracks().forEach(t => t.stop());
+      setLocalStream(null);
+    }
+    if (screenStream) {
+      screenStream.getTracks().forEach(t => t.stop());
+      setScreenStream(null);
+      setIsScreenSharing(false);
+    }
+    
+    setRemoteStream(null);
+    setCallState('idle');
+    setIncomingCall(null);
+    currentCallIdRef.current = null;
+    iceCandidateQueue.current = [];
+  }, [callState, incomingCall, targetUsername, currentUser, localStream, screenStream]);
+
+  const startStatsPolling = useCallback(() => {
+    if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
+    
+    statsIntervalRef.current = setInterval(async () => {
+      if (!pcRef.current) return;
+      
+      try {
+        const stats = await pcRef.current.getStats();
+        let rtt = 0;
+        let packetsLost = 0;
+        let packetsSent = 0;
+        
+        stats.forEach(report => {
+          if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+            rtt = report.currentRoundTripTime || 0;
+          }
+          if (report.type === 'outbound-rtp' && report.kind === 'video') {
+            packetsSent = report.packetsSent || 0;
+          }
+          if (report.type === 'remote-inbound-rtp' && report.kind === 'video') {
+            packetsLost = report.packetsLost || 0;
+          }
+        });
+        
+        const lossRate = packetsSent > 0 ? packetsLost / packetsSent : 0;
+        
+        // Find video sender to adjust bitrate
+        const senders = pcRef.current.getSenders();
+        const videoSender = senders.find(s => s.track?.kind === 'video');
+        
+        if (videoSender && videoSender.track) {
+          const params = videoSender.getParameters();
+          if (!params.encodings) params.encodings = [{}];
+          
+          let currentMaxBitrate = params.encodings[0].maxBitrate || 1500000;
+          let newQuality: 'Good' | 'Fair' | 'Poor' = 'Good';
+          
+          // Simple adaptation logic based on RTT (s) and Packet Loss
+          if (rtt > 0.25 || lossRate > 0.05) {
+            newQuality = 'Poor';
+            currentMaxBitrate = Math.max(100000, currentMaxBitrate * 0.5); 
+          } else if (rtt > 0.1 || lossRate > 0.02) {
+            newQuality = 'Fair';
+            currentMaxBitrate = Math.max(250000, currentMaxBitrate * 0.8);
+          } else {
+            newQuality = 'Good';
+            currentMaxBitrate = Math.min(2500000, currentMaxBitrate * 1.1);
+          }
+          
+          if (params.encodings[0].maxBitrate !== currentMaxBitrate) {
+            params.encodings[0].maxBitrate = currentMaxBitrate;
+            await videoSender.setParameters(params);
+            console.log(`[ABR] Quality: ${newQuality}, maxBitrate set to: ${currentMaxBitrate}`);
+          }
+          
+          setNetworkQuality(newQuality);
+        }
+      } catch (e) {
+        console.error('Error polling stats for ABR', e);
+      }
+    }, 2000);
+  }, []);
+
   useEffect(() => {
     if (!currentUser) return;
     const pusher = getPusherClient();
@@ -33,9 +138,9 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     const channelName = `user-${currentUser}`;
     const channel = pusher.subscribe(channelName);
 
-    channel.bind('webrtc-signal', async (data: any) => {
+    channel.bind('webrtc-signal', async (data: Record<string, unknown> & { isCallSignal?: boolean }) => {
       if (!data.isCallSignal) return;
-      const { type, senderUsername, payload, transferId } = data as CallSignal;
+      const { type, senderUsername, payload, transferId } = data as unknown as CallSignal;
 
       if (type === 'offer') {
         if (callState !== 'idle') {
@@ -50,14 +155,14 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
           } as CallSignal);
           return;
         }
-        setIncomingCall({ sender: senderUsername, offer: payload, callId: transferId });
+        setIncomingCall({ sender: senderUsername, offer: payload as RTCSessionDescriptionInit, callId: transferId });
         setCallState('ringing');
         currentCallIdRef.current = transferId;
       }
 
       if (type === 'answer' && currentCallIdRef.current === transferId) {
         if (pcRef.current) {
-          await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload));
+          await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload as RTCSessionDescriptionInit));
           setCallState('connected');
           startStatsPolling();
           
@@ -76,12 +181,12 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
       if (type === 'ice-candidate' && currentCallIdRef.current === transferId) {
         if (pcRef.current && pcRef.current.remoteDescription) {
           try {
-            await pcRef.current.addIceCandidate(new RTCIceCandidate(payload));
+            await pcRef.current.addIceCandidate(new RTCIceCandidate(payload as RTCIceCandidateInit));
           } catch (e) {
             console.error('Error adding ICE candidate', e);
           }
         } else {
-          iceCandidateQueue.current.push(payload);
+          iceCandidateQueue.current.push(payload as RTCIceCandidateInit);
         }
       }
 
@@ -93,7 +198,7 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     return () => {
       pusher.unsubscribe(channelName);
     };
-  }, [currentUser, callState]);
+  }, [currentUser, callState, targetUsername, incomingCall, endCall, startStatsPolling]);
 
   const initLocalStream = async () => {
     const stream = await startCamera();
@@ -214,47 +319,7 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     iceCandidateQueue.current = [];
   };
 
-  const endCall = async () => {
-    if (currentCallIdRef.current && (callState === 'connected' || callState === 'calling')) {
-      // Send reject/end to peer
-      const target = incomingCall ? incomingCall.sender : targetUsername;
-      if (target) {
-        await sendSignal({
-          targetUsername: target,
-          senderUsername: currentUser,
-          type: 'reject', // acts as end
-          transferId: currentCallIdRef.current,
-          isCallSignal: true
-        } as CallSignal);
-      }
-    }
 
-    if (pcRef.current) {
-      pcRef.current.close();
-      pcRef.current = null;
-    }
-    
-    if (statsIntervalRef.current) {
-      clearInterval(statsIntervalRef.current);
-      statsIntervalRef.current = null;
-    }
-    
-    if (localStream) {
-      localStream.getTracks().forEach(t => t.stop());
-      setLocalStream(null);
-    }
-    if (screenStream) {
-      screenStream.getTracks().forEach(t => t.stop());
-      setScreenStream(null);
-      setIsScreenSharing(false);
-    }
-    
-    setRemoteStream(null);
-    setCallState('idle');
-    setIncomingCall(null);
-    currentCallIdRef.current = null;
-    iceCandidateQueue.current = [];
-  };
 
   const toggleMute = () => {
     if (localStream) {
@@ -297,72 +362,7 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     }
   };
 
-  // Feature 10: Adaptive Bitrate Polling
-  const startStatsPolling = useCallback(() => {
-    if (statsIntervalRef.current) clearInterval(statsIntervalRef.current);
-    
-    statsIntervalRef.current = setInterval(async () => {
-      if (!pcRef.current) return;
-      
-      try {
-        const stats = await pcRef.current.getStats();
-        let rtt = 0;
-        let packetsLost = 0;
-        let packetsSent = 0;
-        
-        stats.forEach(report => {
-          if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-            rtt = report.currentRoundTripTime || 0;
-          }
-          if (report.type === 'outbound-rtp' && report.kind === 'video') {
-            packetsSent = report.packetsSent || 0;
-          }
-          if (report.type === 'remote-inbound-rtp' && report.kind === 'video') {
-            packetsLost = report.packetsLost || 0;
-          }
-        });
-        
-        const lossRate = packetsSent > 0 ? packetsLost / packetsSent : 0;
-        
-        // Find video sender to adjust bitrate
-        const senders = pcRef.current.getSenders();
-        const videoSender = senders.find(s => s.track?.kind === 'video');
-        
-        if (videoSender && videoSender.track) {
-          const params = videoSender.getParameters();
-          if (!params.encodings) params.encodings = [{}];
-          
-          let currentMaxBitrate = params.encodings[0].maxBitrate || 1500000;
-          let newQuality: 'Good' | 'Fair' | 'Poor' = 'Good';
-          
-          // Simple adaptation logic based on RTT (s) and Packet Loss
-          if (rtt > 0.25 || lossRate > 0.05) {
-            // Poor network, drop bitrate significantly
-            newQuality = 'Poor';
-            currentMaxBitrate = Math.max(100000, currentMaxBitrate * 0.5); 
-          } else if (rtt > 0.1 || lossRate > 0.02) {
-            // Fair network, slight drop
-            newQuality = 'Fair';
-            currentMaxBitrate = Math.max(250000, currentMaxBitrate * 0.8);
-          } else {
-            // Good network, slowly recover
-            newQuality = 'Good';
-            currentMaxBitrate = Math.min(2500000, currentMaxBitrate * 1.1);
-          }
-          
-          if (params.encodings[0].maxBitrate !== currentMaxBitrate) {
-            params.encodings[0].maxBitrate = currentMaxBitrate;
-            await videoSender.setParameters(params);
-            console.log(`[ABR] Quality: ${newQuality}, maxBitrate set to: ${currentMaxBitrate}`);
-          }
-          
-          setNetworkQuality(newQuality);
-        }
-      } catch (e) {
-        console.error('Error polling stats for ABR', e);
-      }
-    }, 2000);
-  }, []);
+
 
   return {
     callState,
@@ -374,13 +374,13 @@ export const useCall = (currentUser: string, targetUsername?: string, roomId?: s
     isVideoOff,
     isScreenSharing,
     networkQuality,
-    peerConnection: pcRef.current,
     startCall,
     acceptCall,
     rejectCall,
     endCall,
     toggleMute,
     toggleVideo,
-    toggleScreenShare
+    toggleScreenShare,
+    peerConnection: pcRef.current
   };
 };

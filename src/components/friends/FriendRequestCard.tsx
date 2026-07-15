@@ -1,11 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { FriendProfile } from '@/lib/friends';
 import { Button } from '@/components/ui/button';
-import { Check, X, ArrowLeft } from 'lucide-react';
-import Pusher from 'pusher-js';
+import { Check, X } from 'lucide-react';
 
 export function FriendRequestCard({ profile, type, onAction }: { profile: FriendProfile, type: 'incoming' | 'outgoing', onAction: () => void }) {
   const [loading, setLoading] = useState(false);
@@ -19,8 +17,7 @@ export function FriendRequestCard({ profile, type, onAction }: { profile: Friend
         body: JSON.stringify({ fromUsername: profile.username })
       });
       onAction();
-    } catch (e) {
-    } finally {
+    } catch {} finally {
       setLoading(false);
     }
   };

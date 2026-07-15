@@ -13,17 +13,16 @@ export function FriendList({ currentUser }: { currentUser: string }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const router = useRouter();
 
-  const fetchFriends = async (mounted = true) => {
-    try {
-      const res = await fetch('/api/friends');
-      const data = await res.json();
-      if (mounted) setFriends(data || []);
-    } catch (e) {}
-  };
-
   useEffect(() => {
     let mounted = true;
-    fetchFriends(mounted);
+    const fetchFriends = async () => {
+      try {
+        const res = await fetch('/api/friends');
+        const data = await res.json();
+        if (mounted) setFriends(data || []);
+      } catch {}
+    };
+    fetchFriends();
     
     // Heartbeat every 30 seconds
     const interval = setInterval(() => {
@@ -63,7 +62,7 @@ export function FriendList({ currentUser }: { currentUser: string }) {
     try {
       await fetch(`/api/friends/remove?username=${username}`, { method: 'DELETE' });
       setFriends(prev => prev.filter(f => f.username !== username));
-    } catch (e) {}
+    } catch {}
   };
 
   const startChat = (username: string) => {

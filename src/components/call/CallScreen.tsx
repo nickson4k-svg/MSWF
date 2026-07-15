@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, Video, VideoOff, MonitorUp, MonitorX, PhoneOff, Circle, Square, Signal, SignalLow, SignalMedium, SignalHigh, Sparkles, Timer } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, MonitorUp, MonitorX, PhoneOff, Circle, Square, Sparkles, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VideoGrid } from './VideoGrid';
 
@@ -15,7 +15,7 @@ function useConnectionQuality(pc: RTCPeerConnection | null) {
     const interval = setInterval(async () => {
       try {
         const report = await pc.getStats();
-        report.forEach((stat: any) => {
+        report.forEach((stat: Record<string, unknown> & { type?: string; state?: string; currentRoundTripTime?: number; availableOutgoingBitrate?: number; packetsLost?: number; packetsSent?: number }) => {
           if (stat.type === 'candidate-pair' && stat.state === 'succeeded') {
             const rtt = stat.currentRoundTripTime ? stat.currentRoundTripTime * 1000 : 0;
             const bitrate = stat.availableOutgoingBitrate ? Math.round(stat.availableOutgoingBitrate / 1000) : 0;
@@ -33,7 +33,7 @@ function useConnectionQuality(pc: RTCPeerConnection | null) {
             setStats({ rtt: Math.round(rtt), bitrate, packetLoss: Math.round(lossRate * 10) / 10 });
           }
         });
-      } catch (e) {}
+      } catch {}
     }, 2000);
     return () => clearInterval(interval);
   }, [pc]);
@@ -234,7 +234,7 @@ export const CallScreen = ({
             {networkQuality && networkQuality !== 'Good' && (
               <div className="bg-zinc-900/90 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg backdrop-blur flex items-center gap-1.5 animate-in slide-in-from-top-4">
                 <span className={`w-2 h-2 rounded-full ${networkQuality === 'Fair' ? 'bg-amber-400' : 'bg-red-500 animate-pulse'}`}></span>
-                Зв'язок: {networkQuality === 'Fair' ? 'Поганий' : 'Критичний'}
+                Зв&apos;язок: {networkQuality === 'Fair' ? 'Поганий' : 'Критичний'}
               </div>
             )}
         </div>

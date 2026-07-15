@@ -22,7 +22,7 @@ export default function Home() {
 
   useEffect(() => {
     let mounted = true;
-    setIsMounted(true);
+    setTimeout(() => setIsMounted(true), 0);
     fetch('/api/auth/me')
       .then(res => res.json())
       .then(data => {
@@ -62,8 +62,8 @@ export default function Home() {
       const bitmap = await createImageBitmap(file);
       const canvas = document.createElement('canvas');
       const MAX_SIZE = 128;
-      let width = bitmap.width;
-      let height = bitmap.height;
+      const width = bitmap.width;
+      const height = bitmap.height;
 
       // Make it a square by cropping the center
       const size = Math.min(width, height);

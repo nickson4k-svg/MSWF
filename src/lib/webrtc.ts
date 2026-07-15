@@ -8,7 +8,7 @@ export interface WebRTCSignal {
   senderUsername: string;
   targetUsername: string;
   type: 'offer' | 'answer' | 'ice-candidate' | 'reject';
-  payload: any;
+  payload: unknown;
   fileMeta?: FileMeta;
   roomId?: string;
   transferId: string;
@@ -129,7 +129,7 @@ export const receiveFileOverChannel = (
         // Try to use File System Access API
         if ('showSaveFilePicker' in window) {
           try {
-            const handle = await (window as any).showSaveFilePicker({
+            const handle = await (window as unknown as { showSaveFilePicker: (options: unknown) => Promise<{ createWritable: () => Promise<FileSystemWritableFileStream> }> }).showSaveFilePicker({
               suggestedName: meta.fileName,
             });
             writable = await handle.createWritable();

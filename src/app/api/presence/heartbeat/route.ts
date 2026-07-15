@@ -28,6 +28,9 @@ export async function POST(req: Request) {
 
     // Set online status with TTL 60
     await redis.set(`presence:${currentUser}`, 'online', { ex: 60 });
+    
+    // Feature 15: Last seen tracking
+    await redis.set(`lastSeen:${currentUser}`, Date.now().toString());
 
     // If they just came online, we can notify their friends
     if (!wasOnline) {

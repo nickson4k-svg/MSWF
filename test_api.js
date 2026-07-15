@@ -1,3 +1,4 @@
+/* eslint-disable */
 const { SignJWT } = require('jose');
 
 async function run() {
