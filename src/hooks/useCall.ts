@@ -251,7 +251,14 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
       setIsScreenSharing(false);
     } else {
       try {
-        await room.localParticipant.setScreenShareEnabled(true, { audio: true });
+        await room.localParticipant.setScreenShareEnabled(true, { 
+          audio: true,
+          resolution: {
+            width: 1920,
+            height: 1080,
+            frameRate: 60,
+          }
+        });
         setIsScreenSharing(true);
       } catch (err) {
         console.error('Failed to start screen share', err);
