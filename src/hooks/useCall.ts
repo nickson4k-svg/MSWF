@@ -26,28 +26,41 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
   // Convert LiveKit tracks to MediaStream so we don't have to rewrite UI heavily
   const updateLocalStream = useCallback((r: Room) => {
     const stream = new MediaStream();
-    r.localParticipant.videoTrackPublications.forEach(p => {
-      if (p.track?.mediaStreamTrack && p.source !== Track.Source.ScreenShare) stream.addTrack(p.track.mediaStreamTrack);
-    });
+    
+    const videoPubs = Array.from(r.localParticipant.videoTrackPublications.values());
+    const screenSharePub = videoPubs.find(p => p.source === Track.Source.ScreenShare);
+    const cameraPub = videoPubs.find(p => p.source === Track.Source.Camera);
+    
+    const activeVideoPub = screenSharePub || cameraPub;
+    if (activeVideoPub?.track?.mediaStreamTrack) {
+      stream.addTrack(activeVideoPub.track.mediaStreamTrack);
+    }
+
     r.localParticipant.audioTrackPublications.forEach(p => {
       if (p.track?.mediaStreamTrack && p.source !== Track.Source.ScreenShareAudio) stream.addTrack(p.track.mediaStreamTrack);
     });
     setLocalStream(stream.getTracks().length > 0 ? stream : null);
     
-    // Screen share
+    // Screen stream for other potential UI needs
     const ssStream = new MediaStream();
-    r.localParticipant.videoTrackPublications.forEach(p => {
-      if (p.track?.mediaStreamTrack && p.source === Track.Source.ScreenShare) ssStream.addTrack(p.track.mediaStreamTrack);
-    });
+    if (screenSharePub?.track?.mediaStreamTrack) {
+      ssStream.addTrack(screenSharePub.track.mediaStreamTrack);
+    }
     setScreenStream(ssStream.getTracks().length > 0 ? ssStream : null);
   }, []);
 
   const updateRemoteStream = useCallback((r: Room) => {
     const stream = new MediaStream();
     r.remoteParticipants.forEach(participant => {
-      participant.videoTrackPublications.forEach(p => {
-        if (p.track?.mediaStreamTrack) stream.addTrack(p.track.mediaStreamTrack);
-      });
+      const videoPubs = Array.from(participant.videoTrackPublications.values());
+      const screenSharePub = videoPubs.find(p => p.source === Track.Source.ScreenShare);
+      const cameraPub = videoPubs.find(p => p.source === Track.Source.Camera);
+      
+      const activeVideoPub = screenSharePub || cameraPub;
+      if (activeVideoPub?.track?.mediaStreamTrack) {
+        stream.addTrack(activeVideoPub.track.mediaStreamTrack);
+      }
+
       participant.audioTrackPublications.forEach(p => {
         if (p.track?.mediaStreamTrack) stream.addTrack(p.track.mediaStreamTrack);
       });
