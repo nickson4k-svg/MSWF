@@ -38,7 +38,15 @@ const rtcConfig = {
 };
 
 export const createPeerConnection = () => {
-  return new RTCPeerConnection(rtcConfig);
+  return new RTCPeerConnection({
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:global.stun.twilio.com:3478' },
+      { urls: 'stun:stun.cloudflare.com:3478' }
+    ]
+  });
 };
 
 export const formatBytes = (bytes: number): string => {
@@ -68,42 +76,40 @@ export const sendFileOverChannel = async (
 
     dataChannel.bufferedAmountLowThreshold = 65536; // 64 KB
 
-    const readAndSend = () => {
-      if (dataChannel.readyState !== 'open') return;
+    const readAndSend = async () => {
+      try {
+        while (offset < file.size) {
+          if (dataChannel.readyState !== 'open') {
+            reject(new Error('Data channel closed unexpectedly'));
+            return;
+          }
 
-      while (offset < file.size) {
-        if (dataChannel.bufferedAmount > dataChannel.bufferedAmountLowThreshold) {
-          // Buffer is full, wait for it to empty
-          dataChannel.onbufferedamountlow = () => {
-            dataChannel.onbufferedamountlow = null;
-            readAndSend();
-          };
-          return;
+          if (dataChannel.bufferedAmount > dataChannel.bufferedAmountLowThreshold) {
+            // Buffer is full, wait for it to empty
+            await new Promise<void>(res => {
+              dataChannel.onbufferedamountlow = () => {
+                dataChannel.onbufferedamountlow = null;
+                res();
+              };
+            });
+          }
+
+          const chunk = file.slice(offset, offset + chunkSize);
+          const buffer = await chunk.arrayBuffer();
+          
+          if (dataChannel.readyState !== 'open') return;
+          dataChannel.send(buffer);
+          
+          offset += chunk.size;
+          onProgress(Math.floor((offset / file.size) * 100));
         }
 
-        const chunk = file.slice(offset, offset + chunkSize);
-        const reader = new FileReader();
-
-        // Using synchronous reading approach via ArrayBuffer is needed for DataChannel
-        // But FileReader is async, so we need to await it carefully without breaking loop?
-        // Actually, better to read iteratively
-        reader.onload = (e) => {
-          if (dataChannel.readyState !== 'open') return;
-          if (e.target && e.target.result) {
-            dataChannel.send(e.target.result as ArrayBuffer);
-            offset += chunk.size;
-            onProgress(Math.floor((offset / file.size) * 100));
-            readAndSend();
-          }
-        };
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(chunk);
-        return; // Break the loop, the onload callback will continue it
-      }
-
-      if (offset >= file.size) {
-        dataChannel.send(JSON.stringify({ type: "done" }));
-        resolve();
+        if (offset >= file.size) {
+          dataChannel.send(JSON.stringify({ type: "done" }));
+          resolve();
+        }
+      } catch (err) {
+        reject(err);
       }
     };
 
@@ -152,7 +158,11 @@ export const receiveFileOverChannel = (
         if (writable) {
           // Wait for all writes to finish
           writeQueue = writeQueue.then(async () => {
-            await writable!.close();
+            try {
+              await writable!.close();
+            } catch (e) {
+              console.error('Failed to close writable', e);
+            }
             onComplete();
           });
         } else {
