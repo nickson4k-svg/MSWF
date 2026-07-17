@@ -7,7 +7,7 @@ export interface FileMeta {
 export interface WebRTCSignal {
   senderUsername: string;
   targetUsername: string;
-  type: 'offer' | 'answer' | 'ice-candidate' | 'reject';
+  type: 'offer' | 'answer' | 'ice-candidate' | 'reject' | 'file-offer';
   payload: unknown;
   fileMeta?: FileMeta;
   roomId?: string;
@@ -37,4 +37,18 @@ const rtcConfig = {
   ],
 };
 
+export const formatBytes = (bytes: number): string => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
 
+export const sendSignal = async (signal: Partial<WebRTCSignal>) => {
+  await fetch('/api/webrtc/signal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(signal)
+  });
+};
