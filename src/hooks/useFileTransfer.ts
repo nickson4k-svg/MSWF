@@ -121,7 +121,8 @@ export const useFileTransfer = (
         roomId: conversationRoomId
       } as any);
 
-      room.on(RoomEvent.DataReceived, async (payload, p, kind, topic) => {
+      // Wait for receiver's READY signal before sending
+      room.on(RoomEvent.DataReceived, async (payload, _p, _kind, topic) => {
         if (topic === 'file-ready') {
           updateTransferStatus(transferId, 'transferring');
           try {
@@ -132,9 +133,12 @@ export const useFileTransfer = (
             if (onTransferComplete) {
               onTransferComplete({ fileName: file.name, fileSize: file.size, mimeType: file.type });
             }
+            // Disconnect after a short delay to let final packets flush
+            setTimeout(() => cleanupConnection(transferId), 2000);
           } catch (err) {
             console.error('File send error', err);
             updateTransferStatus(transferId, 'error');
+            cleanupConnection(transferId);
           }
         }
       });
@@ -166,16 +170,36 @@ export const useFileTransfer = (
       
       updateTransferStatus(id, 'transferring', 0);
       
-      await receiveFileOverLiveKit(room, fileMeta, 
+      // Step 1: Register data handler FIRST (synchronous — just attaches listener)
+      receiveFileOverLiveKit(
+        room,
+        fileMeta, 
         (progress) => {
           updateTransferStatus(id, 'transferring', progress);
         },
         (blobUrl) => {
           updateTransferStatus(id, 'completed', 100, blobUrl);
           if (onTransferComplete) onTransferComplete(fileMeta);
+          
+          // Auto-download the file
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = fileMeta.fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          
+          // Cleanup after download
+          setTimeout(() => cleanupConnection(id), 2000);
+        },
+        (err) => {
+          console.error('File receive error', err);
+          updateTransferStatus(id, 'error');
+          cleanupConnection(id);
         }
       );
 
+      // Step 2: THEN tell the sender we're ready (handler is already listening)
       await room.localParticipant.publishData(new TextEncoder().encode('READY'), {
         reliable: true,
         topic: 'file-ready',

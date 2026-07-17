@@ -1,118 +1,106 @@
 import { Room, RoomEvent } from 'livekit-client';
 import { FileMeta } from './webrtc';
 
+const CHUNK_SIZE = 15000; // LiveKit data channel limit ~15KB
+
+/**
+ * SENDER: Reads the file in chunks and publishes each over LiveKit data channel.
+ * Must only be called AFTER the receiver has sent 'file-ready'.
+ */
 export const sendFileOverLiveKit = async (
   file: File,
   room: Room,
   onProgress: (progress: number) => void
-) => {
-  return new Promise<void>((resolve, reject) => {
-    const chunkSize = 15000; // LiveKit recommends keeping chunks under 15KB
-    let offset = 0;
+): Promise<void> => {
+  let offset = 0;
+  let chunksSent = 0;
 
-    const readAndSend = async () => {
-      try {
-        let chunksSent = 0;
-        while (offset < file.size) {
-          if (room.state !== 'connected') {
-            reject(new Error('LiveKit room disconnected'));
-            return;
-          }
+  while (offset < file.size) {
+    if (room.state !== 'connected') {
+      throw new Error('LiveKit room disconnected during file send');
+    }
 
-          const chunk = file.slice(offset, offset + chunkSize);
-          const buffer = await chunk.arrayBuffer();
-          const uint8Array = new Uint8Array(buffer);
+    const end = Math.min(offset + CHUNK_SIZE, file.size);
+    const slice = file.slice(offset, end);
+    const buffer = await slice.arrayBuffer();
 
-          await room.localParticipant.publishData(uint8Array, {
-            reliable: true,
-            topic: 'file-chunk',
-          });
+    await room.localParticipant.publishData(new Uint8Array(buffer), {
+      reliable: true,
+      topic: 'file-chunk',
+    });
 
-          offset += chunk.size;
-          chunksSent++;
-          
-          if (chunksSent % 50 === 0) {
-            await new Promise(r => setTimeout(r, 5)); // prevent UI block & socket flood
-          }
-          
-          onProgress(Math.floor((offset / file.size) * 100));
-        }
+    offset = end;
+    chunksSent++;
 
-        if (offset >= file.size) {
-          await room.localParticipant.publishData(new TextEncoder().encode('DONE'), {
-            reliable: true,
-            topic: 'file-done',
-          });
-          resolve();
-        }
-      } catch (err) {
-        reject(err);
-      }
-    };
+    // Yield to event loop every 30 chunks to prevent flooding
+    if (chunksSent % 30 === 0) {
+      await new Promise(r => setTimeout(r, 10));
+    }
 
-    // Start sending
-    readAndSend();
-  });
+    onProgress(Math.min(99, Math.floor((offset / file.size) * 100)));
+  }
+
+  // Signal transfer complete
+  await room.localParticipant.publishData(
+    new TextEncoder().encode('__FILE_DONE__'),
+    { reliable: true, topic: 'file-done' }
+  );
+
+  onProgress(100);
 };
 
-export const receiveFileOverLiveKit = async (
+/**
+ * RECEIVER: Listens for data chunks, accumulates in memory, then creates
+ * a Blob download URL when done. No File System Access API — it's unreliable
+ * and causes race conditions with the save dialog.
+ */
+export const receiveFileOverLiveKit = (
   room: Room,
   meta: FileMeta,
   onProgress: (progress: number) => void,
-  onComplete: (fileUrl?: string) => void
-) => {
+  onComplete: (blobUrl: string) => void,
+  onError: (err: Error) => void
+): (() => void) => {
   let receivedBytes = 0;
   const chunks: Uint8Array[] = [];
-  let writable: FileSystemWritableFileStream | null = null;
-  let writeQueue = Promise.resolve();
 
-  // Try to use File System Access API
-  const initFs = async () => {
-    if ('showSaveFilePicker' in window) {
-      try {
-        const handle = await (window as any).showSaveFilePicker({
-          suggestedName: meta.fileName,
-        });
-        writable = await handle.createWritable();
-      } catch (e) {
-        console.warn('FS Access failed, falling back to Blob', e);
-      }
-    }
-  };
-
-  await initFs();
-
-  const dataHandler = (payload: Uint8Array, participant: any, kind: any, topic?: string) => {
+  const dataHandler = (payload: Uint8Array, _participant: any, _kind: any, topic?: string) => {
     if (topic === 'file-chunk') {
-      if (writable) {
-        writeQueue = writeQueue.then(() => writable!.write(payload as any)).catch(console.error);
-      } else {
-        chunks.push(payload);
-      }
+      // Copy the payload to avoid detached buffer issues
+      const copy = new Uint8Array(payload.length);
+      copy.set(payload);
+      chunks.push(copy);
 
       receivedBytes += payload.byteLength;
       if (meta.fileSize > 0) {
-        onProgress(Math.floor((receivedBytes / meta.fileSize) * 100));
+        onProgress(Math.min(99, Math.floor((receivedBytes / meta.fileSize) * 100)));
       }
     } else if (topic === 'file-done') {
       room.off(RoomEvent.DataReceived, dataHandler);
-      
-      if (writable) {
-        writeQueue = writeQueue.then(async () => {
-          try {
-            await writable!.close();
-          } catch (e) {
-            console.error('Failed to close writable', e);
-          }
-          onComplete();
+
+      try {
+        const blob = new Blob(chunks as any[], {
+          type: meta.mimeType || 'application/octet-stream',
         });
-      } else {
-        const blob = new Blob(chunks as any, { type: meta.mimeType || 'application/octet-stream' });
+
+        if (blob.size === 0) {
+          onError(new Error(`Received 0 bytes (expected ${meta.fileSize}). ${chunks.length} chunks collected.`));
+          return;
+        }
+
         const url = URL.createObjectURL(blob);
+        onProgress(100);
         onComplete(url);
+      } catch (e) {
+        onError(e instanceof Error ? e : new Error(String(e)));
       }
     }
   };
 
   room.on(RoomEvent.DataReceived, dataHandler);
+
+  // Return cleanup function
+  return () => {
+    room.off(RoomEvent.DataReceived, dataHandler);
+  };
 };
