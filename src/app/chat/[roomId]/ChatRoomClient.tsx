@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getPusherClient, sanitizeChannelName } from '@/lib/pusher';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Copy, ArrowLeft, CheckCircle2, Video as VideoIcon, Reply, X, Check, CheckCheck } from 'lucide-react';
+import { Send, Copy, ArrowLeft, CheckCircle2, Video as VideoIcon, Reply, X, Check, CheckCheck, Palette } from 'lucide-react';
 import { format, isToday, isYesterday, isSameDay, formatDistanceToNow } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { FriendList } from '@/components/friends/FriendList';
@@ -21,7 +21,7 @@ import { Timer, Clock, Mic, Square } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { generateKeyFromRoomId, encryptText, decryptText } from '@/lib/e2ee';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
-import { getCachedMessages, cacheMessages, cleanExpiredMessages } from '@/lib/db';
+import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, saveRoomTheme } from '@/lib/db';
 
 interface Message {
   id: string;
@@ -68,6 +68,27 @@ const TTL_OPTIONS = [
   { label: '1 день', value: 86400 },
 ];
 
+const getThemeClasses = (theme: string) => {
+  switch (theme) {
+    case 'ocean': return 'bg-gradient-to-br from-blue-950/80 to-slate-900/80 border-blue-900/50';
+    case 'cyberpunk': return 'bg-gradient-to-br from-fuchsia-950/80 to-violet-950/80 border-fuchsia-900/50';
+    case 'forest': return 'bg-gradient-to-br from-emerald-950/80 to-zinc-900/80 border-emerald-900/50';
+    case 'rose': return 'bg-gradient-to-br from-rose-950/80 to-zinc-900/80 border-rose-900/50';
+    default: return 'bg-zinc-950/60 border-zinc-800/50';
+  }
+};
+
+const getBubbleClasses = (theme: string, isMe: boolean) => {
+  if (!isMe) return 'bg-zinc-900 border border-zinc-800/80 text-zinc-100';
+  switch (theme) {
+    case 'ocean': return 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white border border-blue-500/50';
+    case 'cyberpunk': return 'bg-gradient-to-br from-pink-600 to-purple-600 text-white border border-pink-500/50';
+    case 'forest': return 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white border border-emerald-500/50';
+    case 'rose': return 'bg-gradient-to-br from-rose-600 to-red-700 text-white border border-rose-500/50';
+    default: return 'bg-gradient-to-br from-blue-600 to-blue-700 text-white';
+  }
+};
+
 function getDateLabel(date: Date): string {
   if (isToday(date)) return 'Сьогодні';
   if (isYesterday(date)) return 'Вчора';
@@ -84,6 +105,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [isDragging, setIsDragging] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false); // Feature 13: Emoji Picker
   const [isOnline, setIsOnline] = useState(true); // Feature 13: Offline Queue
+  const [theme, setTheme] = useState('default'); // Theme state
+  const [showThemePicker, setShowThemePicker] = useState(false);
   
   // Feature 15: Last Seen tracking
   const [targetPresence, setTargetPresence] = useState<{ isOnline: boolean; lastSeen: number | null }>({ isOnline: false, lastSeen: null });
@@ -466,6 +489,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     getCachedMessages(roomId).then(async (cached) => {
       if (!mounted) return;
       const key = roomId.startsWith('private-') ? await generateKeyFromRoomId(roomId) : null;
+      getRoomTheme(roomId).then(t => mounted && setTheme(t));
       if (cached.length > 0) {
         // Decrypt cached messages if needed
         const decryptedCache = await Promise.all(cached.map(async m => {
@@ -572,6 +596,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         }
         return m;
       }));
+    });
+
+    // Feature: Theme syncing
+    channel.bind('room-theme-changed', (data: { username: string; theme: string }) => {
+      setTheme(data.theme);
+      saveRoomTheme(roomId, data.theme);
     });
 
     return () => {
@@ -747,7 +777,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         )}
 
         {/* ЦЕНТР: Чат */}
-        <div className="flex-1 flex flex-col h-full md:rounded-2xl md:border bg-zinc-950/60 shadow-2xl relative overflow-hidden animate-slide-up min-w-0">
+        <div className={`flex-1 flex flex-col h-full md:rounded-2xl md:border shadow-2xl relative overflow-hidden animate-slide-up min-w-0 transition-colors duration-500 ${getThemeClasses(theme)}`}>
         {/* Background ambient light */}
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
       
@@ -795,7 +825,47 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 relative">
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowThemePicker(!showThemePicker)}
+              className="rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+              title="Тема чату"
+            >
+              <Palette className="w-5 h-5" />
+            </Button>
+            {showThemePicker && (
+              <div className="absolute right-0 top-12 w-40 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl p-2 z-50 animate-fade-in flex flex-col gap-1">
+                {[
+                  { id: 'default', name: 'Стандартна', color: 'bg-zinc-800' },
+                  { id: 'ocean', name: 'Океан', color: 'bg-blue-600' },
+                  { id: 'cyberpunk', name: 'Кіберпанк', color: 'bg-fuchsia-600' },
+                  { id: 'forest', name: 'Ліс', color: 'bg-emerald-600' },
+                  { id: 'rose', name: 'Троянда', color: 'bg-rose-600' },
+                ].map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setTheme(t.id);
+                      saveRoomTheme(roomId, t.id);
+                      setShowThemePicker(false);
+                      fetch('/api/messages/theme', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ roomId, theme: t.id }),
+                      });
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors hover:bg-zinc-800 ${theme === t.id ? 'bg-zinc-800/50 text-white font-medium' : 'text-zinc-400'}`}
+                  >
+                    <div className={`w-3 h-3 rounded-full ${t.color}`} />
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <ThemeToggle />
           {targetUsername && (
             <Button 
@@ -953,9 +1023,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                     <div 
                       className={`
                         px-5 py-3 shadow-lg 
-                        ${isMe 
-                          ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl rounded-br-sm' 
-                          : 'bg-zinc-900 border border-zinc-800/80 text-zinc-100 rounded-2xl rounded-bl-sm'}
+                        ${isMe ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-bl-sm'}
+                        ${getBubbleClasses(theme, isMe)}
                       `}
                     >
                       {/* Feature 1: Markdown rendering or Feature 11: Voice message */}

@@ -13,13 +13,20 @@ export interface CachedMessage {
   ttl?: number;
 }
 
+export interface RoomSettings {
+  roomId: string;
+  theme?: string;
+}
+
 class NexusChatDB extends Dexie {
   messages!: EntityTable<CachedMessage, 'id'>;
+  settings!: EntityTable<RoomSettings, 'roomId'>;
 
   constructor() {
     super('NexusChatDB');
-    this.version(1).stores({
+    this.version(2).stores({
       messages: 'id, roomId, timestamp',
+      settings: 'roomId',
     });
   }
 }
@@ -59,5 +66,22 @@ export async function cleanExpiredMessages() {
     }
   } catch (e) {
     console.warn('Failed to clean expired messages:', e);
+  }
+}
+
+export async function saveRoomTheme(roomId: string, theme: string) {
+  try {
+    await db.settings.put({ roomId, theme });
+  } catch (e) {
+    console.warn('Failed to save room theme:', e);
+  }
+}
+
+export async function getRoomTheme(roomId: string): Promise<string> {
+  try {
+    const setting = await db.settings.get(roomId);
+    return setting?.theme || 'default';
+  } catch (e) {
+    return 'default';
   }
 }
