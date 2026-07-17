@@ -1,13 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getPusherClient } from '@/lib/pusher';
-import { 
-  createPeerConnection, 
-  sendSignal, 
-  sendFileOverChannel, 
-  receiveFileOverChannel,
-  WebRTCSignal,
-  FileMeta
-} from '@/lib/webrtc';
+import { sendSignal, WebRTCSignal, FileMeta } from '@/lib/webrtc';
+import { Room, RoomEvent } from 'livekit-client';
+import { sendFileOverLiveKit, receiveFileOverLiveKit } from '@/lib/livekit-file';
 
 export interface FileTransfer {
   id: string;
@@ -30,55 +25,28 @@ export const useFileTransfer = (
     id: string;
     sender: string;
     fileMeta: FileMeta;
-    offer: RTCSessionDescriptionInit;
     roomId?: string;
   } | null>(null);
 
-  // We need to keep track of active peer connections and data channels
-  const connectionsRef = useRef<Record<string, RTCPeerConnection>>({});
-  const channelsRef = useRef<Record<string, RTCDataChannel>>({});
+  const roomsRef = useRef<Record<string, Room>>({});
 
   useEffect(() => {
     if (!currentUser) return;
-
     const pusher = getPusherClient();
     if (!pusher) return;
-
     const channelName = `user-${currentUser}`;
     const channel = pusher.subscribe(channelName);
 
     channel.bind('webrtc-signal', async (data: WebRTCSignal) => {
-      const { type, senderUsername, payload, fileMeta, roomId, transferId } = data;
+      const { type, senderUsername, fileMeta, roomId, transferId } = data;
 
-      if (type === 'offer' && fileMeta) {
+      if (type === 'file-offer' && fileMeta) {
         setPendingOffer({
           id: transferId,
           sender: senderUsername,
           fileMeta,
-          offer: payload as RTCSessionDescriptionInit,
           roomId
         });
-      }
-
-      if (type === 'answer') {
-        const pc = connectionsRef.current[transferId];
-        if (pc) {
-          await pc.setRemoteDescription(new RTCSessionDescription(payload as RTCSessionDescriptionInit));
-        }
-      }
-
-      if (type === 'ice-candidate') {
-        const pc = connectionsRef.current[transferId];
-        if (pc && pc.remoteDescription) {
-          try {
-            await pc.addIceCandidate(new RTCIceCandidate(payload as RTCIceCandidateInit));
-          } catch (e) {
-            console.error('Error adding ICE candidate', e);
-          }
-        } else if (pc) {
-          // Store ICE candidates if remote description is not yet set? 
-          // Usually we set remote before receiving ICE.
-        }
       }
 
       if (type === 'reject') {
@@ -107,19 +75,28 @@ export const useFileTransfer = (
   }
 
   function cleanupConnection(id: string) {
-    const pc = connectionsRef.current[id];
-    if (pc) {
-      pc.close();
-      delete connectionsRef.current[id];
-    }
-    const dc = channelsRef.current[id];
-    if (dc) {
-      dc.close();
-      delete channelsRef.current[id];
+    const room = roomsRef.current[id];
+    if (room) {
+      room.disconnect();
+      delete roomsRef.current[id];
     }
   }
 
-  const initiateTransfer = useCallback(async (file: File, targetUsername: string, roomId?: string) => {
+  const joinTransferRoom = async (transferId: string) => {
+    const lkRoomId = `file-transfer-${transferId}`;
+    const res = await fetch('/api/livekit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room: lkRoomId, username: currentUser })
+    });
+    const { token } = await res.json();
+    const room = new Room({ adaptiveStream: false, dynacast: false });
+    roomsRef.current[transferId] = room;
+    await room.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, token);
+    return room;
+  };
+
+  const initiateTransfer = useCallback(async (file: File, targetUsername: string, conversationRoomId?: string) => {
     const transferId = Math.random().toString(36).substring(2, 10);
     
     setTransfers(prev => [...prev, {
@@ -130,65 +107,46 @@ export const useFileTransfer = (
       status: 'connecting',
       progress: 0,
       isIncoming: false,
-      roomId
+      roomId: conversationRoomId
     }]);
 
-    const pc = createPeerConnection();
-    connectionsRef.current[transferId] = pc;
+    try {
+      const room = await joinTransferRoom(transferId);
+      
+      await sendSignal({
+        transferId,
+        targetUsername,
+        type: 'file-offer',
+        fileMeta: { fileName: file.name, fileSize: file.size, mimeType: file.type },
+        roomId: conversationRoomId
+      } as any);
 
-    const dataChannel = pc.createDataChannel('fileTransfer', { ordered: true });
-    dataChannel.binaryType = 'arraybuffer';
-    channelsRef.current[transferId] = dataChannel;
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        sendSignal({
-          transferId,
-          targetUsername,
-          type: 'ice-candidate',
-          payload: event.candidate
-        });
-      }
-    };
-
-    dataChannel.onopen = async () => {
-      updateTransferStatus(transferId, 'transferring');
-      try {
-        await sendFileOverChannel(file, dataChannel, (progress) => {
-          updateTransferStatus(transferId, 'transferring', progress);
-        });
-        updateTransferStatus(transferId, 'completed', 100);
-        if (onTransferComplete) {
-          onTransferComplete({ fileName: file.name, fileSize: file.size, mimeType: file.type });
+      room.on(RoomEvent.DataReceived, async (payload, p, kind, topic) => {
+        if (topic === 'file-ready') {
+          updateTransferStatus(transferId, 'transferring');
+          try {
+            await sendFileOverLiveKit(file, room, (progress) => {
+              updateTransferStatus(transferId, 'transferring', progress);
+            });
+            updateTransferStatus(transferId, 'completed', 100);
+            if (onTransferComplete) {
+              onTransferComplete({ fileName: file.name, fileSize: file.size, mimeType: file.type });
+            }
+          } catch (err) {
+            console.error('File send error', err);
+            updateTransferStatus(transferId, 'error');
+          }
         }
-      } catch (err) {
-        console.error('File send error', err);
-        updateTransferStatus(transferId, 'error');
-      }
-    };
-
-    dataChannel.onerror = () => {
+      });
+    } catch (e) {
+      console.error('Failed to initiate transfer', e);
       updateTransferStatus(transferId, 'error');
-      cleanupConnection(transferId);
-    };
-
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-
-    await sendSignal({
-      transferId,
-      targetUsername,
-      type: 'offer',
-      payload: offer,
-      fileMeta: { fileName: file.name, fileSize: file.size, mimeType: file.type },
-      roomId
-    });
-
+    }
   }, [currentUser, onTransferComplete]);
 
   const acceptOffer = useCallback(async () => {
     if (!pendingOffer) return;
-    const { id, sender, fileMeta, offer, roomId } = pendingOffer;
+    const { id, sender, fileMeta, roomId: conversationRoomId } = pendingOffer;
     
     setTransfers(prev => [...prev, {
       id,
@@ -198,91 +156,55 @@ export const useFileTransfer = (
       status: 'connecting',
       progress: 0,
       isIncoming: true,
-      roomId
+      roomId: conversationRoomId
     }]);
     
     setPendingOffer(null);
 
-    const pc = createPeerConnection();
-    connectionsRef.current[id] = pc;
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        sendSignal({
-          transferId: id,
-          targetUsername: sender,
-          type: 'ice-candidate',
-          payload: event.candidate
-        });
-      }
-    };
-
-    pc.ondatachannel = (event) => {
-      const dataChannel = event.channel;
-      dataChannel.binaryType = 'arraybuffer';
-      channelsRef.current[id] = dataChannel;
+    try {
+      const room = await joinTransferRoom(id);
       
-      dataChannel.onopen = () => {
-        updateTransferStatus(id, 'transferring', 0);
-      };
-
-      receiveFileOverChannel(dataChannel, 
+      updateTransferStatus(id, 'transferring', 0);
+      
+      receiveFileOverLiveKit(room, fileMeta, 
         (progress) => {
           updateTransferStatus(id, 'transferring', progress);
         },
         (blobUrl) => {
           updateTransferStatus(id, 'completed', 100, blobUrl);
-          if (onTransferComplete) {
-            onTransferComplete(fileMeta);
-          }
+          if (onTransferComplete) onTransferComplete(fileMeta);
         }
       );
-    };
 
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-
-    await sendSignal({
-      transferId: id,
-      targetUsername: sender,
-      type: 'answer',
-      payload: answer
-    });
-
+      await room.localParticipant.publishData(new TextEncoder().encode('READY'), {
+        reliable: true,
+        topic: 'file-ready',
+      });
+    } catch (e) {
+      console.error('Failed to accept transfer', e);
+      updateTransferStatus(id, 'error');
+    }
   }, [pendingOffer, currentUser, onTransferComplete]);
 
   const rejectOffer = useCallback(async () => {
     if (!pendingOffer) return;
     const { id, sender } = pendingOffer;
-    
     await sendSignal({
       transferId: id,
       targetUsername: sender,
       type: 'reject'
     });
-    
     setPendingOffer(null);
   }, [pendingOffer]);
 
   const cancelTransfer = useCallback((id: string) => {
     const t = transfers.find(x => x.id === id);
     if (!t) return;
-
     if (t.status === 'connecting' || t.status === 'transferring') {
       updateTransferStatus(id, 'error');
-      // If we are sender, we could notify receiver. For now just close.
     }
-    
     cleanupConnection(id);
   }, [transfers]);
 
-  return {
-    transfers,
-    pendingOffer,
-    initiateTransfer,
-    acceptOffer,
-    rejectOffer,
-    cancelTransfer
-  };
+  return { transfers, pendingOffer, initiateTransfer, acceptOffer, rejectOffer, cancelTransfer };
 };
