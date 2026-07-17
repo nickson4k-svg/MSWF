@@ -145,8 +145,15 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
       const { token } = await res.json();
       
       const newRoom = new Room({
-        adaptiveStream: true,
-        dynacast: true,
+        adaptiveStream: false,
+        dynacast: false,
+        videoCaptureDefaults: {
+          resolution: { width: 1280, height: 720, frameRate: 30 }
+        },
+        publishDefaults: {
+          videoEncoding: { maxBitrate: 1500000, maxFramerate: 30 },
+          screenShareEncoding: { maxBitrate: 3000000, maxFramerate: 60 }
+        }
       });
 
       newRoom
