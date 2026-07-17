@@ -78,7 +78,7 @@ export const receiveFileOverLiveKit = (
   const dataHandler = (payload: Uint8Array, participant: any, kind: any, topic?: string) => {
     if (topic === 'file-chunk') {
       if (writable) {
-        writeQueue = writeQueue.then(() => writable!.write(payload as unknown as Uint8Array)).catch(console.error);
+        writeQueue = writeQueue.then(() => writable!.write(payload as any)).catch(console.error);
       } else {
         chunks.push(payload);
       }
@@ -100,7 +100,7 @@ export const receiveFileOverLiveKit = (
           onComplete();
         });
       } else {
-        const blob = new Blob(chunks, { type: meta.mimeType || 'application/octet-stream' });
+        const blob = new Blob(chunks as any, { type: meta.mimeType || 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         onComplete(url);
       }
