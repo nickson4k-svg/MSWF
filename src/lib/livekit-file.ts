@@ -78,7 +78,7 @@ export const receiveFileOverLiveKit = (
   const dataHandler = (payload: Uint8Array, participant: any, kind: any, topic?: string) => {
     if (topic === 'file-chunk') {
       if (writable) {
-        writeQueue = writeQueue.then(() => writable!.write(payload)).catch(console.error);
+        writeQueue = writeQueue.then(() => writable!.write(payload as unknown as Uint8Array)).catch(console.error);
       } else {
         chunks.push(payload);
       }
