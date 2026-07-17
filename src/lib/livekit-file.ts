@@ -12,6 +12,7 @@ export const sendFileOverLiveKit = async (
 
     const readAndSend = async () => {
       try {
+        let chunksSent = 0;
         while (offset < file.size) {
           if (room.state !== 'connected') {
             reject(new Error('LiveKit room disconnected'));
@@ -28,6 +29,12 @@ export const sendFileOverLiveKit = async (
           });
 
           offset += chunk.size;
+          chunksSent++;
+          
+          if (chunksSent % 50 === 0) {
+            await new Promise(r => setTimeout(r, 5)); // prevent UI block & socket flood
+          }
+          
           onProgress(Math.floor((offset / file.size) * 100));
         }
 
@@ -48,7 +55,7 @@ export const sendFileOverLiveKit = async (
   });
 };
 
-export const receiveFileOverLiveKit = (
+export const receiveFileOverLiveKit = async (
   room: Room,
   meta: FileMeta,
   onProgress: (progress: number) => void,
@@ -73,7 +80,7 @@ export const receiveFileOverLiveKit = (
     }
   };
 
-  initFs();
+  await initFs();
 
   const dataHandler = (payload: Uint8Array, participant: any, kind: any, topic?: string) => {
     if (topic === 'file-chunk') {

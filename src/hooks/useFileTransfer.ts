@@ -166,7 +166,7 @@ export const useFileTransfer = (
       
       updateTransferStatus(id, 'transferring', 0);
       
-      receiveFileOverLiveKit(room, fileMeta, 
+      await receiveFileOverLiveKit(room, fileMeta, 
         (progress) => {
           updateTransferStatus(id, 'transferring', progress);
         },
