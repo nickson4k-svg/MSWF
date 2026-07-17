@@ -262,7 +262,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     sendMessage(JSON.stringify({
       type: 'file-transfer-meta',
       fileName: meta.fileName,
-      fileSize: meta.fileSize
+      fileSize: meta.fileSize,
+      mimeType: meta.mimeType
     }));
   });
 
@@ -772,7 +773,14 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             {/* Feature 2: Typing indicator & Feature 15: Last Seen */}
             <p className="text-xs text-zinc-400 font-medium h-4">
               {typingText ? (
-                <span className="text-blue-400 animate-pulse">{typingText}</span>
+                <span className="text-blue-400 flex items-center gap-1">
+                  {typingText.replace('...', '')}
+                  <span className="flex gap-[2px] ml-0.5">
+                    <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '600ms' }} />
+                    <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms', animationDuration: '600ms' }} />
+                    <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms', animationDuration: '600ms' }} />
+                  </span>
+                </span>
               ) : targetUsername ? (
                 targetPresence.isOnline ? (
                   <span className="text-emerald-500 font-semibold">В мережі</span>
@@ -870,7 +878,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
               )}
               <div 
                 id={`msg-${msg.id}`} 
-                className={`flex flex-col w-full transition-all duration-300 rounded-xl ${isMe ? 'items-end' : 'items-start'} ${showSender ? 'mt-4' : 'mt-0.5'}`}
+                className={`flex flex-col w-full transition-all duration-300 rounded-xl animate-slide-up ${isMe ? 'items-end' : 'items-start'} ${showSender ? 'mt-4' : 'mt-0.5'}`}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   setContextMenu({ msg, x: e.clientX, y: e.clientY });
@@ -931,7 +939,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                     ))}
                   </div>
                   {isFileMeta && fileMetaData ? (
-                    <FileMessage fileName={fileMetaData.fileName} fileSize={fileMetaData.fileSize} />
+                    <FileMessage 
+                      fileName={fileMetaData.fileName} 
+                      fileSize={fileMetaData.fileSize}
+                      mimeType={fileMetaData.mimeType}
+                      isMe={isMe}
+                    />
                   ) : msg.isDeleted ? (
                     <div className={`px-5 py-3 shadow-lg bg-zinc-900 border border-zinc-800/80 text-zinc-500 italic rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
                       Повідомлення видалено
