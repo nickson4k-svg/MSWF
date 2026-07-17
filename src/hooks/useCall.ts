@@ -172,9 +172,22 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
       setRoom(newRoom);
       await newRoom.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, token);
       
-      // Auto enable camera & mic
-      await newRoom.localParticipant.setCameraEnabled(true);
-      await newRoom.localParticipant.setMicrophoneEnabled(true);
+      // Auto enable camera & mic gracefully
+      try {
+        await newRoom.localParticipant.setCameraEnabled(true);
+        setIsVideoOff(false);
+      } catch (e) {
+        console.warn('Camera blocked or not found', e);
+        setIsVideoOff(true);
+      }
+
+      try {
+        await newRoom.localParticipant.setMicrophoneEnabled(true);
+        setIsMuted(false);
+      } catch (e) {
+        console.warn('Microphone blocked or not found', e);
+        setIsMuted(true);
+      }
       
       return newRoom;
     } catch (e) {
@@ -234,19 +247,27 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
     currentCallIdRef.current = null;
   };
 
-  const toggleMute = useCallback(() => {
+  const toggleMute = useCallback(async () => {
     if (room) {
-      const isMicOn = room.localParticipant.isMicrophoneEnabled;
-      room.localParticipant.setMicrophoneEnabled(!isMicOn);
-      setIsMuted(isMicOn); // we toggle it, so if it was on, now it's off (muted)
+      try {
+        const isMicOn = room.localParticipant.isMicrophoneEnabled;
+        await room.localParticipant.setMicrophoneEnabled(!isMicOn);
+        setIsMuted(!room.localParticipant.isMicrophoneEnabled);
+      } catch (err) {
+        console.error('Failed to toggle mic', err);
+      }
     }
   }, [room]);
 
-  const toggleVideo = useCallback(() => {
+  const toggleVideo = useCallback(async () => {
     if (room) {
-      const isCamOn = room.localParticipant.isCameraEnabled;
-      room.localParticipant.setCameraEnabled(!isCamOn);
-      setIsVideoOff(isCamOn);
+      try {
+        const isCamOn = room.localParticipant.isCameraEnabled;
+        await room.localParticipant.setCameraEnabled(!isCamOn);
+        setIsVideoOff(!room.localParticipant.isCameraEnabled);
+      } catch (err) {
+        console.error('Failed to toggle camera', err);
+      }
     }
   }, [room]);
 
