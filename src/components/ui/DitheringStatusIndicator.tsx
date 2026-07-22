@@ -38,33 +38,31 @@ export const DitheringStatusIndicator = ({
   if (!mounted) {
     return (
       <span
-        className={`inline-block rounded-full border border-zinc-900 ${currentSizeClass} ${
-          isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'
-        } ${className}`}
+        className={`inline-block rounded-full border border-zinc-900 ${currentSizeClass} ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'
+          } ${className}`}
       />
     );
   }
 
   return (
     <div
-      className={`relative inline-flex items-center justify-center rounded-full overflow-hidden border ${
-        isOnline
-          ? 'border-emerald-400/80 shadow-[0_0_8px_rgba(0,255,68,0.7)]'
-          : 'border-zinc-700 shadow-none'
-      } flex-shrink-0 ${currentSizeClass} ${className}`}
+      className={`relative inline-flex items-center justify-center rounded-full overflow-hidden border ${isOnline
+        ? 'border-emerald-400/80 shadow-[0_0_8px_rgba(0,255,68,0.7)]'
+        : 'border-zinc-700 shadow-none'
+        } flex-shrink-0 ${currentSizeClass} ${className}`}
       title={isOnline ? 'Мережа: Онлайн' : 'Мережа: Офлайн'}
     >
       <div className={`w-[180px] h-[180px] flex-shrink-0 flex items-center justify-center ${currentScaleClass} transform-gpu`}>
         <Dithering
           width={180}
           height={180}
-          colorBack="#000000"
+          colorBack="#000000ff"
           colorFront={colorFront}
           shape="sphere"
           type="4x4"
           size={8.8}
-          speed={isOnline ? 1 : 0}
-          scale={0.6}
+          speed={isOnline ? 3.9 : 0}
+          scale={0.7}
           fit="cover"
         />
       </div>
