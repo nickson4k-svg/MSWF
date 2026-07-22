@@ -159,8 +159,8 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
           resolution: { width: 1280, height: 720, frameRate: 30 }
         },
         publishDefaults: {
-          videoEncoding: { maxBitrate: 1500000, maxFramerate: 30 },
-          screenShareEncoding: { maxBitrate: 3000000, maxFramerate: 60 }
+          videoEncoding: { maxBitrate: 3000000, maxFramerate: 30 },
+          screenShareEncoding: { maxBitrate: 8000000, maxFramerate: 60 }
         }
       });
 

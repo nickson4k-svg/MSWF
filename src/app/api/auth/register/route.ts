@@ -1,50 +1,45 @@
 import { NextResponse } from 'next/server';
 import { hashPassword, generateToken } from '@/lib/auth';
 import { cookies } from 'next/headers';
-
-// Simple in-memory rate limiting (per IP).
-const rateLimitMap = new Map<string, { count: number, resetTime: number }>();
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const limit = rateLimitMap.get(ip);
-  if (limit && limit.resetTime > now) {
-    if (limit.count >= 5) return false;
-    limit.count++;
-  } else {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + 60000 }); // 1 minute
-  }
-  return true;
-}
+import { redis } from '@/lib/redis';
+import { authRateLimit } from '@/lib/rate-limit';
 
 export async function POST(req: Request) {
-  const ip = req.headers.get('x-forwarded-for') || 'unknown';
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: 'Забагато запитів. Спробуйте пізніше.' }, { status: 429 });
-  }
-
   try {
+    const ip = req.headers.get('x-forwarded-for') || 'unknown';
+    const { success } = await authRateLimit.limit(ip);
+    if (!success) {
+      return NextResponse.json({ error: 'Забагато запитів. Спробуйте пізніше.' }, { status: 429 });
+    }
+
     const { username, password } = await req.json();
     if (!username || !password || username.length < 3 || password.length < 6) {
-      return NextResponse.json({ error: 'Некоректні дані' }, { status: 400 });
+      return NextResponse.json({ error: 'Некоректні дані. Логін ≥3, пароль ≥6 символів.' }, { status: 400 });
+    }
+
+    // Sanitize username (only alphanumeric, underscores, hyphens)
+    if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+      return NextResponse.json({ error: 'Логін може містити лише літери, цифри, _ та -' }, { status: 400 });
+    }
+
+    const profileKey = `profile:${username}`;
+    const exists = await redis.exists(profileKey);
+    
+    if (exists) {
+      return NextResponse.json({ error: 'Цей логін вже зайнятий' }, { status: 409 });
     }
 
     const pwdHash = await hashPassword(password);
-    const token = await generateToken(username, pwdHash);
+    const token = await generateToken(username);
 
-    const { redis } = await import('@/lib/redis');
-    
-    // Create profile in Redis if it doesn't exist
-    const profileKey = `profile:${username}`;
-    const exists = await redis.exists(profileKey);
-    if (!exists) {
-      await redis.hset(profileKey, {
-        username,
-        displayName: username,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
-        createdAt: new Date().toISOString()
-      });
-    }
+    // Store profile WITH password hash in Redis
+    await redis.hset(profileKey, {
+      username,
+      displayName: username,
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+      pwdHash,
+      createdAt: new Date().toISOString()
+    });
 
     const cookieStore = await cookies();
     cookieStore.set({
@@ -59,6 +54,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, username });
   } catch (err) {
+    console.error('Register error:', err);
     return NextResponse.json({ error: 'Помилка сервера' }, { status: 500 });
   }
 }

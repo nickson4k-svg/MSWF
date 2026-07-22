@@ -23,23 +23,37 @@ export async function GET(req: Request) {
       return NextResponse.json([]);
     }
 
+    const friendUsernames = friends as string[];
+    const pipeline = redis.pipeline();
+
+    for (const friendUsername of friendUsernames) {
+      const roomId = getPrivateRoomId(currentUser, friendUsername);
+      pipeline.hgetall(`profile:${friendUsername}`);
+      pipeline.get(`presence:${friendUsername}`);
+      pipeline.get(`lastSeen:${friendUsername}`);
+      pipeline.get(`unread:${roomId}:${currentUser}`);
+    }
+
+    const results = await pipeline.exec();
     const friendProfiles: FriendWithStatus[] = [];
 
-    // Fetch profiles and presence for all friends
-    for (const f of friends) {
-      const friendUsername = f as string;
-      const profileData = await redis.hgetall(`profile:${friendUsername}`);
-      const presence = await redis.get(`presence:${friendUsername}`);
-      const lastSeenStr = await redis.get(`lastSeen:${friendUsername}`);
-      const roomId = getPrivateRoomId(currentUser, friendUsername);
-      const unreadCountStr = await redis.get(`unread:${roomId}:${currentUser}`);
-      const unreadCount = unreadCountStr ? parseInt(unreadCountStr as string, 10) : 0;
+    for (let i = 0; i < friendUsernames.length; i++) {
+      const offset = i * 4;
+      const profileData = results[offset] as Record<string, unknown> | null;
+      const presence = results[offset + 1] as string | null;
+      const lastSeenStr = results[offset + 2] as string | null;
+      const unreadCountStr = results[offset + 3] as string | null;
+
+      const unreadCount = unreadCountStr ? parseInt(unreadCountStr, 10) : 0;
       
       if (profileData && profileData.username) {
+        const isOnline = presence === 'online';
         friendProfiles.push({
           ...(profileData as unknown as FriendProfile),
-          isOnline: presence === 'online',
-          lastSeen: presence === 'online' ? new Date().toISOString() : (lastSeenStr ? new Date(parseInt(lastSeenStr as string)).toISOString() : undefined),
+          isOnline,
+          lastSeen: isOnline 
+            ? new Date().toISOString() 
+            : (lastSeenStr ? new Date(parseInt(lastSeenStr, 10)).toISOString() : undefined),
           unreadCount
         });
       }
@@ -55,7 +69,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(friendProfiles);
   } catch (err) {
-    console.error(err);
+    console.error('Error fetching friends:', err);
     return new NextResponse('Internal Error', { status: 500 });
   }
 }

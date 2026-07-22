@@ -6,7 +6,6 @@ const encodedSecret = new TextEncoder().encode(JWT_SECRET);
 
 export interface TokenPayload {
   sub: string;
-  pwdHash: string;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -17,8 +16,8 @@ export async function comparePassword(password: string, hash: string): Promise<b
   return bcrypt.compare(password, hash);
 }
 
-export async function generateToken(username: string, pwdHash: string): Promise<string> {
-  const jwt = await new SignJWT({ sub: username, pwdHash })
+export async function generateToken(username: string): Promise<string> {
+  const jwt = await new SignJWT({ sub: username })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('30d')

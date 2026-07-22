@@ -2,15 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { redis } from '@/lib/redis';
-import Pusher from 'pusher';
-
-const pusherServer = new Pusher({
-  appId: process.env.PUSHER_APP_ID || 'dummy_id',
-  key: process.env.NEXT_PUBLIC_PUSHER_KEY || 'dummy_key',
-  secret: process.env.PUSHER_SECRET || 'dummy_secret',
-  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu',
-  useTLS: true,
-});
+import { getPusherServer } from '@/lib/pusher-server';
 
 export async function POST(req: Request) {
   try {
@@ -47,8 +39,8 @@ export async function POST(req: Request) {
 
     // Trigger realtime events
     try {
-      await pusherServer.trigger(`user-${fromUsername}`, 'friend-request-accepted', currentUserProfile);
-      await pusherServer.trigger(`user-${currentUser}`, 'friend-request-accepted', fromUserProfile);
+      await getPusherServer().trigger(`user-${fromUsername}`, 'friend-request-accepted', currentUserProfile);
+      await getPusherServer().trigger(`user-${currentUser}`, 'friend-request-accepted', fromUserProfile);
     } catch (err) {
       console.warn('Pusher error:', err);
     }

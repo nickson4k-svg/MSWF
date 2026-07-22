@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import Pusher from 'pusher';
+import { getPusherServer } from '@/lib/pusher-server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { sanitizeChannelName } from '@/lib/pusher';
@@ -25,13 +25,7 @@ export async function POST(req: Request) {
     const reactionKey = `reactions:${msgId}`;
     await redis.hset(reactionKey, { [sender]: emoji });
 
-    const pusherServer = new Pusher({
-      appId: process.env.PUSHER_APP_ID || 'dummy_id',
-      key: process.env.NEXT_PUBLIC_PUSHER_KEY || 'dummy_key',
-      secret: process.env.PUSHER_SECRET || 'dummy_secret',
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu',
-      useTLS: true,
-    });
+    const pusherServer = getPusherServer();
 
     // Trigger Pusher event
     await pusherServer.trigger(`room-${sanitizeChannelName(roomId)}`, 'message-reaction', {

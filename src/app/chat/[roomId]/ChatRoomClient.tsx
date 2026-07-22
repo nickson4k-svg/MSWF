@@ -25,6 +25,9 @@ import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, s
 import { ShaderBackground, type ShaderType } from '@/components/ui/ShaderBackground';
 import { GemSmoke } from '@paper-design/shaders-react';
 import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
+import { ChatHeader } from '@/components/chat/ChatHeader';
+import { ThemePickerModal } from '@/components/chat/ThemePickerModal';
+import { ChatInput } from '@/components/chat/ChatInput';
 
 interface Message {
   id: string;
@@ -811,148 +814,29 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
       
       {/* Header */}
-      <header className="flex items-center justify-between p-4 sm:px-6 border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-xl z-10">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => router.push('/')}
-            className="rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="flex flex-col">
-            <h1 className="font-bold text-lg leading-tight text-zinc-100 flex items-center gap-2">
-              <DitheringStatusIndicator isOnline={targetUsername ? targetPresence.isOnline : true} size="sm" />
-              {roomId.startsWith('private-') 
-                ? `Приватний чат з ${roomId.replace('private-', '').split('-').find(u => u !== username)}`
-                : `Кімната ${roomId}`
-              }
-            </h1>
-            {/* Feature 2: Typing indicator & Feature 15: Last Seen */}
-            <p className="text-xs text-zinc-400 font-medium h-4">
-              {typingText ? (
-                <span className="text-blue-400 flex items-center gap-1">
-                  {typingText.replace('...', '')}
-                  <span className="flex gap-[2px] ml-0.5">
-                    <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '600ms' }} />
-                    <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms', animationDuration: '600ms' }} />
-                    <span className="w-1 h-1 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms', animationDuration: '600ms' }} />
-                  </span>
-                </span>
-              ) : targetUsername ? (
-                targetPresence.isOnline ? (
-                  <span className="text-emerald-500 font-semibold">В мережі</span>
-                ) : targetPresence.lastSeen ? (
-                  <span>Був(ла) {formatDistanceToNow(targetPresence.lastSeen, { addSuffix: true, locale: uk })}</span>
-                ) : (
-                  <span>Офлайн</span>
-                )
-              ) : (
-                <>Ви увійшли як <span className="text-blue-400">{username}</span></>
-              )}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-4 relative">
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowThemePicker(!showThemePicker)}
-              className="rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-              title="Тема чату"
-            >
-              <Palette className="w-5 h-5" />
-            </Button>
-            {showThemePicker && (
-              <div className="absolute right-0 top-12 w-52 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-fade-in flex flex-col gap-3 max-h-[80vh] overflow-y-auto">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1 px-1">Кольорова схема</p>
-                  <div className="flex flex-col gap-0.5">
-                    {[
-                      { id: 'default', name: 'Стандартна', color: 'bg-zinc-800' },
-                      { id: 'ocean', name: 'Океан', color: 'bg-blue-600' },
-                      { id: 'cyberpunk', name: 'Кіберпанк', color: 'bg-fuchsia-600' },
-                      { id: 'forest', name: 'Ліс', color: 'bg-emerald-600' },
-                      { id: 'rose', name: 'Троянда', color: 'bg-rose-600' },
-                    ].map(t => (
-                      <button
-                        key={t.id}
-                        onClick={() => {
-                          setTheme(t.id);
-                          saveRoomTheme(roomId, t.id);
-                          fetch('/api/messages/theme', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ roomId, theme: t.id }),
-                          });
-                        }}
-                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors hover:bg-zinc-800/80 ${theme === t.id ? 'bg-zinc-800 text-white font-medium' : 'text-zinc-400'}`}
-                      >
-                        <div className={`w-2.5 h-2.5 rounded-full ${t.color}`} />
-                        {t.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="border-t border-zinc-800/80 pt-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1 px-1">Стиль Шейдера</p>
-                  <div className="flex flex-col gap-0.5">
-                    {[
-                      { id: 'fluid', name: '🌊 WebGL Флюїд', icon: '✨' },
-                      { id: 'grain-corners', name: '🌾 Grain Corners', icon: '🎨' },
-                      { id: 'grain-wave', name: '〰️ Grain Wave', icon: '🌊' },
-                      { id: 'grain-blob', name: '🫧 Grain Blob', icon: '🔮' },
-                    ].map(s => (
-                      <button
-                        key={s.id}
-                        onClick={() => {
-                          const newShader = s.id as ShaderType;
-                          setShaderType(newShader);
-                          saveRoomShader(roomId, newShader);
-                        }}
-                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors hover:bg-zinc-800/80 ${shaderType === s.id ? 'bg-blue-600/20 text-blue-400 font-medium border border-blue-500/30' : 'text-zinc-400'}`}
-                      >
-                        <span>{s.name}</span>
-                        {shaderType === s.id && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          <ThemeToggle />
-          {targetUsername && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => startCall(targetUsername)}
-              className="rounded-full hover:bg-zinc-800 text-blue-400 hover:text-blue-300 transition-colors bg-blue-500/10"
-              title="Відеодзвінок"
-            >
-              <VideoIcon className="w-5 h-5" />
-            </Button>
-          )}
-          {!roomId.startsWith('private-') && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={copyLink} 
-              className="border-zinc-700/50 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-full px-4 transition-all"
-            >
-              {copied ? (
-                <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" />
-              ) : (
-                <Copy className="w-4 h-4 mr-2" />
-              )}
-              {copied ? 'Скопійовано' : 'Поділитися'}
-            </Button>
-          )}
-        </div>
-      </header>
+      <div className="relative">
+        <ChatHeader
+          roomId={roomId}
+          username={username}
+          targetUsername={targetUsername}
+          targetPresence={targetPresence}
+          typingText={typingText}
+          showThemePicker={showThemePicker}
+          onBack={() => router.push('/')}
+          onToggleThemePicker={() => setShowThemePicker(!showThemePicker)}
+          onStartCall={startCall}
+        />
+        {showThemePicker && (
+          <ThemePickerModal
+            roomId={roomId}
+            theme={theme}
+            shaderType={shaderType}
+            onThemeChange={(newTheme) => setTheme(newTheme)}
+            onShaderChange={(newShader) => setShaderType(newShader)}
+            onClose={() => setShowThemePicker(false)}
+          />
+        )}
+      </div>
 
       {/* Chat Area */}
       <div 
@@ -1247,100 +1131,19 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       )}
 
       {/* Input Area */}
-      <footer className="p-3 sm:p-6 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800/60 z-10" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
-        {/* Feature 15: Reply bar */}
-        {replyTo && (
-          <div className="flex items-center gap-2 mb-2 px-4 py-2 bg-zinc-900/80 rounded-xl border border-zinc-800/50 max-w-4xl mx-auto animate-slide-up">
-            <Reply className="w-4 h-4 text-blue-400 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className="text-xs text-blue-400 font-semibold">{replyTo.sender}</span>
-              <p className="text-xs text-zinc-400 truncate">{replyTo.text}</p>
-            </div>
-            <button onClick={() => setReplyTo(null)} className="text-zinc-500 hover:text-white p-1 rounded-full hover:bg-zinc-800">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-        <form onSubmit={handleSendMessage} className="w-full flex gap-2 sm:gap-4 max-w-4xl mx-auto items-center relative">
-          {/* Feature 20: TTL picker */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowTtlPicker(!showTtlPicker)}
-              className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all ${selectedTtl > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-zinc-900/80 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'}`}
-              title="Самознищення"
-            >
-              <Timer className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-            {showTtlPicker && (
-              <div className="absolute bottom-14 left-0 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl p-1 z-20 animate-slide-up min-w-[120px]">
-                {TTL_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => { setSelectedTtl(opt.value); setShowTtlPicker(false); }}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors ${selectedTtl === opt.value ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-300 hover:bg-zinc-800'}`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          
-          {/* Feature 13: Emoji Picker */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all ${showEmojiPicker ? 'bg-blue-500/20 text-blue-400' : 'bg-zinc-900/80 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'}`}
-              title="Емодзі"
-            >
-              <span className="text-xl">😀</span>
-            </button>
-            {showEmojiPicker && (
-              <div className="absolute bottom-14 left-0 z-20 animate-slide-up shadow-2xl">
-                <EmojiPicker 
-                  onEmojiClick={(emojiData) => {
-                    setInputText(prev => prev + emojiData.emoji);
-                    setShowEmojiPicker(false);
-                    inputRef.current?.focus();
-                  }}
-                  theme={Theme.DARK}
-                  searchPlaceHolder="Пошук емодзі..."
-                />
-              </div>
-            )}
-          </div>
-
-          <Input 
-            ref={inputRef}
-            value={inputText}
-            onChange={handleInputChange}
-            placeholder="Напишіть повідомлення..."
-            className="flex-1 bg-zinc-900/80 border-zinc-700/50 text-zinc-100 h-12 sm:h-14 pl-4 sm:pl-5 pr-12 sm:pr-14 rounded-full focus-visible:ring-1 focus-visible:ring-blue-500/50 shadow-inner text-[14px] sm:text-[15px] placeholder:text-zinc-500"
-          />
-          <div className="absolute right-1 sm:right-1.5 flex items-center gap-1">
-            {inputText.trim() ? (
-              <Button 
-                type="submit" 
-                className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-blue-600 hover:bg-blue-500 text-white transition-all flex items-center justify-center p-0 shadow-md"
-              >
-                <Send className="w-4 h-4 sm:w-5 sm:h-5 ml-1" />
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                onClick={isRecordingVoice ? stopVoiceRecording : startVoiceRecording}
-                className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full transition-all flex items-center justify-center p-0 shadow-md ${isRecordingVoice ? 'bg-red-500 hover:bg-red-600 animate-pulse text-white' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}`}
-                title={isRecordingVoice ? "Зупинити запис" : "Голосове повідомлення"}
-              >
-                {isRecordingVoice ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4 sm:w-5 sm:h-5" />}
-              </Button>
-            )}
-          </div>
-        </form>
-      </footer>
+      <ChatInput
+        inputText={inputText}
+        replyTo={replyTo}
+        selectedTtl={selectedTtl}
+        isRecordingVoice={isRecordingVoice}
+        inputRef={inputRef}
+        onInputChange={handleInputChange}
+        onSendMessage={handleSendMessage}
+        onCancelReply={() => setReplyTo(null)}
+        onSelectTtl={(ttl) => setSelectedTtl(ttl)}
+        onStartVoiceRecording={startVoiceRecording}
+        onStopVoiceRecording={stopVoiceRecording}
+      />
       </div>
 
       {/* ПРАВА ПАНЕЛЬ: Список друзів */}

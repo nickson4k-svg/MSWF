@@ -2,15 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { redis } from '@/lib/redis';
-import Pusher from 'pusher';
-
-const pusherServer = new Pusher({
-  appId: process.env.PUSHER_APP_ID || 'dummy_id',
-  key: process.env.NEXT_PUBLIC_PUSHER_KEY || 'dummy_key',
-  secret: process.env.PUSHER_SECRET || 'dummy_secret',
-  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu',
-  useTLS: true,
-});
+import { getPusherServer } from '@/lib/pusher-server';
 
 export async function POST(req: Request) {
   try {
@@ -38,7 +30,7 @@ export async function POST(req: Request) {
       if (friends && friends.length > 0) {
         for (const friend of friends) {
           try {
-            await pusherServer.trigger(`user-${friend}`, 'friend-online', { username: currentUser });
+            await getPusherServer().trigger(`user-${friend}`, 'friend-online', { username: currentUser });
           } catch (e) {
              // ignore individual pusher errors
           }

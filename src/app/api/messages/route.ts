@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import Pusher from 'pusher';
+import { getPusherServer } from '@/lib/pusher-server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { sanitizeChannelName } from '@/lib/pusher';
 import { redis } from '@/lib/redis';
 import webpush from 'web-push';
+import { sendMessageSchema } from '@/lib/validation';
 
 export async function POST(req: Request) {
   try {
@@ -22,19 +23,14 @@ export async function POST(req: Request) {
     
     const sender = payload.sub;
 
-    const pusherServer = new Pusher({
-      appId: process.env.PUSHER_APP_ID || 'dummy_id',
-      key: process.env.NEXT_PUBLIC_PUSHER_KEY || 'dummy_key',
-      secret: process.env.PUSHER_SECRET || 'dummy_secret',
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu',
-      useTLS: true,
-    });
+    const pusherServer = getPusherServer();
 
-    const { text, roomId, replyTo, ttl } = await req.json();
-
-    if (!text || !roomId) {
-      return new NextResponse('Missing required fields', { status: 400 });
+    const body = await req.json();
+    const parseResult = sendMessageSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json({ error: parseResult.error.issues[0]?.message || 'Invalid request' }, { status: 400 });
     }
+    const { text, roomId, replyTo, ttl } = parseResult.data;
 
     const message: Record<string, unknown> = {
       id: crypto.randomUUID(),
