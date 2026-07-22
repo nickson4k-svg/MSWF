@@ -89,31 +89,41 @@ export function FriendList({ currentUser }: { currentUser: string }) {
            </div>
         ) : (
           friends.map(friend => (
-            <div key={friend.username} className="flex items-center justify-between p-2 rounded-xl hover:bg-zinc-800/50 group transition-colors">
+            <div 
+              key={friend.username} 
+              onClick={() => startChat(friend.username)}
+              className="flex items-center justify-between p-2.5 rounded-xl hover:bg-zinc-800/60 group transition-all cursor-pointer border border-transparent hover:border-zinc-800"
+            >
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <img src={friend.avatar} alt={friend.displayName} className="w-10 h-10 rounded-xl bg-zinc-800" />
+                  <img src={friend.avatar} alt={friend.displayName} className="w-10 h-10 rounded-xl bg-zinc-800 object-cover" />
                   <div className="absolute -bottom-1 -right-1 z-10">
                     <DitheringStatusIndicator isOnline={friend.isOnline} size="sm" />
                   </div>
                 </div>
                 <div>
-                  <p className="text-zinc-100 font-medium text-sm leading-tight">{friend.displayName}</p>
+                  <p className="text-zinc-100 font-medium text-sm leading-tight group-hover:text-blue-400 transition-colors">{friend.displayName}</p>
                   <p className="text-zinc-500 text-xs">{friend.isOnline ? 'Online' : 'Offline'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 {/* Feature 6: Unread badge */}
                 {friend.unreadCount ? (
-                  <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                  <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-md">
                     {friend.unreadCount}
                   </span>
                 ) : null}
                 <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" className="w-8 h-8 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10" onClick={() => startChat(friend.username)}>
-                    <MessageSquare className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => removeFriend(friend.username)}>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="w-8 h-8 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFriend(friend.username);
+                    }}
+                    title="Видалити з друзів"
+                  >
                     <UserMinus className="w-4 h-4" />
                   </Button>
                 </div>
