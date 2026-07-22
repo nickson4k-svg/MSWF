@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { Dithering } from '@paper-design/shaders-react';
 
 export const DitheringStatusIndicator = ({
   isOnline = true,
@@ -11,68 +12,38 @@ export const DitheringStatusIndicator = ({
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const sizePx = size === 'sm' ? 16 : size === 'lg' ? 24 : 20;
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    setMounted(true);
+  }, []);
 
-    let animId: number;
-    let t = 0;
+  const sizeClasses = {
+    sm: 'w-4 h-4',
+    md: 'w-5 h-5',
+    lg: 'w-6 h-6',
+  };
 
-    const render = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Scale factor for 180px canvas into tiny status icons
+  const scaleClasses = {
+    sm: 'scale-[0.09]', // 180px * 0.09 = ~16px
+    md: 'scale-[0.11]', // 180px * 0.11 = ~20px
+    lg: 'scale-[0.13]', // 180px * 0.13 = ~24px
+  };
 
-      const cx = canvas.width / 2;
-      const cy = canvas.height / 2;
-      const r = canvas.width * 0.38;
+  const currentSizeClass = sizeClasses[size] || sizeClasses.md;
+  const currentScaleClass = scaleClasses[size] || scaleClasses.md;
+  const colorFront = isOnline ? '#00ff44' : '#71717a';
 
-      // Dark background fill
-      ctx.fillStyle = isOnline ? '#022c22' : '#18181b';
-      ctx.beginPath();
-      ctx.arc(cx, cy, cx - 1, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Dithering 3D sphere points
-      const color = isOnline ? '#00ff44' : '#a1a1aa';
-      ctx.fillStyle = color;
-
-      const numLats = 6;
-      const numLongs = 8;
-
-      for (let i = 0; i < numLats; i++) {
-        const lat = (i / (numLats - 1)) * Math.PI - Math.PI / 2;
-        const radiusLat = r * Math.cos(lat);
-        const y = cy + r * Math.sin(lat);
-
-        for (let j = 0; j < numLongs; j++) {
-          const lon = (j / numLongs) * Math.PI * 2 + (isOnline ? t : 0);
-          const x = cx + radiusLat * Math.cos(lon);
-          const z = radiusLat * Math.sin(lon);
-
-          // Only draw front-facing points of 3D sphere
-          if (z > -2) {
-            const dotSize = Math.max(2, (z / r) * 2 + 2.5);
-            ctx.fillRect(Math.round(x - dotSize / 2), Math.round(y - dotSize / 2), Math.round(dotSize), Math.round(dotSize));
-          }
-        }
-      }
-
-      t += 0.04;
-      if (isOnline) {
-        animId = requestAnimationFrame(render);
-      }
-    };
-
-    render();
-
-    return () => {
-      cancelAnimationFrame(animId);
-    };
-  }, [isOnline, sizePx]);
+  if (!mounted) {
+    return (
+      <span
+        className={`inline-block rounded-full border border-zinc-900 ${currentSizeClass} ${
+          isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'
+        } ${className}`}
+      />
+    );
+  }
 
   return (
     <div
@@ -80,15 +51,23 @@ export const DitheringStatusIndicator = ({
         isOnline
           ? 'border-emerald-400/80 shadow-[0_0_8px_rgba(0,255,68,0.7)]'
           : 'border-zinc-700 shadow-none'
-      } flex-shrink-0 ${size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-6 h-6' : 'w-5 h-5'} ${className}`}
+      } flex-shrink-0 ${currentSizeClass} ${className}`}
       title={isOnline ? 'Мережа: Онлайн' : 'Мережа: Офлайн'}
     >
-      <canvas
-        ref={canvasRef}
-        width={sizePx * 2}
-        height={sizePx * 2}
-        className="w-full h-full"
-      />
+      <div className={`w-[180px] h-[180px] flex-shrink-0 flex items-center justify-center ${currentScaleClass} transform-gpu`}>
+        <Dithering
+          width={180}
+          height={180}
+          colorBack="#000000"
+          colorFront={colorFront}
+          shape="sphere"
+          type="4x4"
+          size={8.8}
+          speed={isOnline ? 1 : 0}
+          scale={0.6}
+          fit="cover"
+        />
+      </div>
     </div>
   );
 };
