@@ -52,10 +52,10 @@ export const DitheringStatusIndicator = ({
         colorFront={colorFront}
         shape="sphere"
         type="4x4"
-        size={2.5}
-        speed={isOnline ? 1.5 : 0}
-        scale={1.2}
-        fit="cover"
+        size={1.2}
+        speed={isOnline ? 1 : 0}
+        scale={0.45}
+        fit="contain"
       />
     </div>
   );
