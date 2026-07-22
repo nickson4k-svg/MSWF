@@ -11,42 +11,48 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
   
   const [room, setRoom] = useState<Room | null>(null);
   
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [localCameraStream, setLocalCameraStream] = useState<MediaStream | null>(null);
+  const [localScreenStream, setLocalScreenStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   
   const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(true); // Default camera OFF on call start
   const [isScreenSharing, setIsScreenSharing] = useState(false);
 
   const currentCallIdRef = useRef<string | null>(null);
   
   const [networkQuality, setNetworkQuality] = useState<'Good' | 'Fair' | 'Poor'>('Good');
 
-  // Convert LiveKit tracks to MediaStream so we don't have to rewrite UI heavily
+  // Convert LiveKit tracks to MediaStreams cleanly
   const updateLocalStream = useCallback((r: Room) => {
-    const stream = new MediaStream();
-    
+    // 1. Local Camera + Mic stream
+    const camStream = new MediaStream();
     const videoPubs = Array.from(r.localParticipant.videoTrackPublications.values());
-    const screenSharePub = videoPubs.find(p => p.source === Track.Source.ScreenShare);
     const cameraPub = videoPubs.find(p => p.source === Track.Source.Camera);
     
-    const activeVideoPub = screenSharePub || cameraPub;
-    if (activeVideoPub?.track?.mediaStreamTrack) {
-      stream.addTrack(activeVideoPub.track.mediaStreamTrack);
+    if (cameraPub?.track?.mediaStreamTrack) {
+      camStream.addTrack(cameraPub.track.mediaStreamTrack);
     }
-
     r.localParticipant.audioTrackPublications.forEach(p => {
-      if (p.track?.mediaStreamTrack && p.source !== Track.Source.ScreenShareAudio) stream.addTrack(p.track.mediaStreamTrack);
+      if (p.track?.mediaStreamTrack && p.source !== Track.Source.ScreenShareAudio) {
+        camStream.addTrack(p.track.mediaStreamTrack);
+      }
     });
-    setLocalStream(stream.getTracks().length > 0 ? stream : null);
+    setLocalCameraStream(camStream.getTracks().length > 0 ? camStream : null);
     
-    // Screen stream for other potential UI needs
-    const ssStream = new MediaStream();
-    if (screenSharePub?.track?.mediaStreamTrack) {
-      ssStream.addTrack(screenSharePub.track.mediaStreamTrack);
+    // 2. Local Screen share stream
+    const screenPub = videoPubs.find(p => p.source === Track.Source.ScreenShare);
+    const scrStream = new MediaStream();
+    if (screenPub?.track?.mediaStreamTrack) {
+      scrStream.addTrack(screenPub.track.mediaStreamTrack);
+      
+      // Auto reset isScreenSharing if user stops screen share from browser floating panel
+      screenPub.track.mediaStreamTrack.onended = () => {
+        setIsScreenSharing(false);
+        setLocalScreenStream(null);
+      };
     }
-    setScreenStream(ssStream.getTracks().length > 0 ? ssStream : null);
+    setLocalScreenStream(scrStream.getTracks().length > 0 ? scrStream : null);
   }, []);
 
   const updateRemoteStream = useCallback((r: Room) => {
@@ -87,13 +93,15 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
       setRoom(null);
     }
     
-    setLocalStream(null);
-    setScreenStream(null);
+    setLocalCameraStream(null);
+    setLocalScreenStream(null);
     setRemoteStream(null);
     setCallState('idle');
     setIncomingCall(null);
     currentCallIdRef.current = null;
     setIsScreenSharing(false);
+    setIsVideoOff(true);
+    setIsMuted(false);
   }, [callState, incomingCall, targetUsername, currentUser, room]);
 
   useEffect(() => {
@@ -172,15 +180,7 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
       setRoom(newRoom);
       await newRoom.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, token);
       
-      // Auto enable camera & mic gracefully
-      try {
-        await newRoom.localParticipant.setCameraEnabled(true);
-        setIsVideoOff(false);
-      } catch (e) {
-        console.warn('Camera blocked or not found', e);
-        setIsVideoOff(true);
-      }
-
+      // 1. Microphone enabled by default
       try {
         await newRoom.localParticipant.setMicrophoneEnabled(true);
         setIsMuted(false);
@@ -188,7 +188,17 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
         console.warn('Microphone blocked or not found', e);
         setIsMuted(true);
       }
+
+      // 2. Camera DISABLED by default as requested
+      try {
+        await newRoom.localParticipant.setCameraEnabled(false);
+        setIsVideoOff(true);
+      } catch (e) {
+        console.warn('Camera blocked or not found', e);
+        setIsVideoOff(true);
+      }
       
+      updateLocalStream(newRoom);
       return newRoom;
     } catch (e) {
       console.error('Failed to join LiveKit room', e);
@@ -208,7 +218,6 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
       return;
     }
 
-    // Wait for someone to join (not strictly necessary to await, we just wait for state)
     newRoom.on(RoomEvent.ParticipantConnected, () => {
       setCallState('connected');
     });
@@ -248,35 +257,39 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
   };
 
   const toggleMute = useCallback(async () => {
-    if (room) {
-      try {
-        const isMicOn = room.localParticipant.isMicrophoneEnabled;
-        await room.localParticipant.setMicrophoneEnabled(!isMicOn);
-        setIsMuted(!room.localParticipant.isMicrophoneEnabled);
-      } catch (err) {
-        console.error('Failed to toggle mic', err);
-      }
+    if (!room) return;
+    try {
+      const nextMutedState = !isMuted;
+      await room.localParticipant.setMicrophoneEnabled(!nextMutedState);
+      setIsMuted(nextMutedState);
+    } catch (err) {
+      console.error('Failed to toggle mic', err);
     }
-  }, [room]);
+  }, [room, isMuted]);
 
   const toggleVideo = useCallback(async () => {
-    if (room) {
-      try {
-        const isCamOn = room.localParticipant.isCameraEnabled;
-        await room.localParticipant.setCameraEnabled(!isCamOn);
-        setIsVideoOff(!room.localParticipant.isCameraEnabled);
-      } catch (err) {
-        console.error('Failed to toggle camera', err);
-      }
+    if (!room) return;
+    try {
+      const nextVideoOffState = !isVideoOff;
+      await room.localParticipant.setCameraEnabled(!nextVideoOffState);
+      setIsVideoOff(nextVideoOffState);
+      updateLocalStream(room);
+    } catch (err) {
+      console.error('Failed to toggle camera', err);
     }
-  }, [room]);
+  }, [room, isVideoOff, updateLocalStream]);
 
   const toggleScreenShare = useCallback(async () => {
     if (!room) return;
     
     if (isScreenSharing) {
-      await room.localParticipant.setScreenShareEnabled(false);
-      setIsScreenSharing(false);
+      try {
+        await room.localParticipant.setScreenShareEnabled(false);
+        setIsScreenSharing(false);
+        setLocalScreenStream(null);
+      } catch (err) {
+        console.error('Failed to stop screen share', err);
+      }
     } else {
       try {
         await room.localParticipant.setScreenShareEnabled(true, { 
@@ -288,18 +301,20 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
           }
         });
         setIsScreenSharing(true);
+        updateLocalStream(room);
       } catch (err) {
         console.error('Failed to start screen share', err);
+        setIsScreenSharing(false);
       }
     }
-  }, [room, isScreenSharing]);
+  }, [room, isScreenSharing, updateLocalStream]);
 
   return {
     callState,
     incomingCall,
-    localStream,
+    localStream: localCameraStream,
+    screenStream: localScreenStream,
     remoteStream,
-    screenStream,
     isMuted,
     isVideoOff,
     isScreenSharing,

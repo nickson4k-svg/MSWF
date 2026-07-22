@@ -212,10 +212,12 @@ export const CallScreen = ({
       <div className="flex-1 relative">
         <VideoGrid 
           localStream={localStream}
+          screenStream={screenStream}
           remoteStream={remoteStream}
           isScreenSharing={isScreenSharing}
           isVideoOff={isVideoOff}
           isBgBlurred={isBgBlurred}
+          targetUsername={targetUsername || incomingCall?.sender}
         />
         
         {/* Screen Share Indicator */}
