@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { GrainGradient } from '@paper-design/shaders-react';
 
 const vertexShaderSource = `
   attribute vec2 a_position;
@@ -87,10 +88,48 @@ const THEMES: Record<string, string[]> = {
   rose: ['#4c0519', '#e11d48', '#881337'],
 };
 
-export const ShaderBackground = ({ theme }: { theme: string }) => {
+const GRAIN_THEMES: Record<string, { colors: string[]; colorBack: string }> = {
+  default: {
+    colors: ['#18181b', '#27272a', '#3f3f46', '#18181b'],
+    colorBack: '#09090b',
+  },
+  ocean: {
+    colors: ['#020617', '#1e3a8a', '#00bfff', '#2563eb'],
+    colorBack: '#020617',
+  },
+  cyberpunk: {
+    colors: ['#7300ff', '#eba8ff', '#00bfff', '#2b00ff'],
+    colorBack: '#000000',
+  },
+  forest: {
+    colors: ['#022c22', '#047857', '#10b981', '#064e3b'],
+    colorBack: '#021c16',
+  },
+  rose: {
+    colors: ['#4c0519', '#e11d48', '#f43f5e', '#881337'],
+    colorBack: '#1a0208',
+  },
+};
+
+export type ShaderType = 'fluid' | 'grain-corners' | 'grain-wave' | 'grain-blob';
+
+export const ShaderBackground = ({
+  theme,
+  shaderType = 'fluid',
+}: {
+  theme: string;
+  shaderType?: ShaderType;
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (shaderType !== 'fluid') return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -128,14 +167,18 @@ export const ShaderBackground = ({ theme }: { theme: string }) => {
 
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-      -1.0, -1.0,
-       1.0, -1.0,
-      -1.0,  1.0,
-      -1.0,  1.0,
-       1.0, -1.0,
-       1.0,  1.0,
-    ]), gl.STATIC_DRAW);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([
+        -1.0, -1.0,
+         1.0, -1.0,
+        -1.0,  1.0,
+        -1.0,  1.0,
+         1.0, -1.0,
+         1.0,  1.0,
+      ]),
+      gl.STATIC_DRAW
+    );
 
     const positionLocation = gl.getAttribLocation(program, 'a_position');
     gl.enableVertexAttribArray(positionLocation);
@@ -183,7 +226,31 @@ export const ShaderBackground = ({ theme }: { theme: string }) => {
       gl.deleteShader(fragmentShader);
       gl.deleteBuffer(positionBuffer);
     };
-  }, [theme]);
+  }, [theme, shaderType]);
+
+  if (!mounted) return null;
+
+  if (shaderType.startsWith('grain')) {
+    const grainConfig = GRAIN_THEMES[theme] || GRAIN_THEMES.default;
+    const shape = (shaderType.replace('grain-', '') || 'corners') as 'corners' | 'wave' | 'blob';
+
+    return (
+      <div className="fixed inset-0 w-full h-full -z-10 overflow-hidden pointer-events-none">
+        <GrainGradient
+          width="100vw"
+          height="100vh"
+          colors={grainConfig.colors}
+          colorBack={grainConfig.colorBack}
+          softness={0.5}
+          intensity={0.5}
+          noise={0.25}
+          shape={shape}
+          speed={1}
+          fit="cover"
+        />
+      </div>
+    );
+  }
 
   return (
     <canvas

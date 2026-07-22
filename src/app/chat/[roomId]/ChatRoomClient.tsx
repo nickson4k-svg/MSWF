@@ -21,8 +21,8 @@ import { Timer, Clock, Mic, Square } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { generateKeyFromRoomId, encryptText, decryptText } from '@/lib/e2ee';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
-import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, saveRoomTheme } from '@/lib/db';
-import { ShaderBackground } from '@/components/ui/ShaderBackground';
+import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, saveRoomTheme, getRoomShader, saveRoomShader } from '@/lib/db';
+import { ShaderBackground, type ShaderType } from '@/components/ui/ShaderBackground';
 
 interface Message {
   id: string;
@@ -107,6 +107,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [showEmojiPicker, setShowEmojiPicker] = useState(false); // Feature 13: Emoji Picker
   const [isOnline, setIsOnline] = useState(true); // Feature 13: Offline Queue
   const [theme, setTheme] = useState('default'); // Theme state
+  const [shaderType, setShaderType] = useState<ShaderType>('fluid'); // Shader type state
   const [showThemePicker, setShowThemePicker] = useState(false);
   
   // Feature 15: Last Seen tracking
@@ -491,6 +492,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       if (!mounted) return;
       const key = roomId.startsWith('private-') ? await generateKeyFromRoomId(roomId) : null;
       getRoomTheme(roomId).then(t => mounted && setTheme(t));
+      getRoomShader(roomId).then(s => mounted && setShaderType(s as ShaderType));
       if (cached.length > 0) {
         // Decrypt cached messages if needed
         const decryptedCache = await Promise.all(cached.map(async m => {
@@ -725,7 +727,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
   return (
     <>
-      <ShaderBackground theme={theme} />
+      <ShaderBackground theme={theme} shaderType={shaderType} />
       {pendingOffer && (
         <FileTransferModal 
           senderName={pendingOffer.sender}
@@ -839,32 +841,61 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
               <Palette className="w-5 h-5" />
             </Button>
             {showThemePicker && (
-              <div className="absolute right-0 top-12 w-40 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl p-2 z-50 animate-fade-in flex flex-col gap-1">
-                {[
-                  { id: 'default', name: 'Стандартна', color: 'bg-zinc-800' },
-                  { id: 'ocean', name: 'Океан', color: 'bg-blue-600' },
-                  { id: 'cyberpunk', name: 'Кіберпанк', color: 'bg-fuchsia-600' },
-                  { id: 'forest', name: 'Ліс', color: 'bg-emerald-600' },
-                  { id: 'rose', name: 'Троянда', color: 'bg-rose-600' },
-                ].map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      setTheme(t.id);
-                      saveRoomTheme(roomId, t.id);
-                      setShowThemePicker(false);
-                      fetch('/api/messages/theme', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ roomId, theme: t.id }),
-                      });
-                    }}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors hover:bg-zinc-800 ${theme === t.id ? 'bg-zinc-800/50 text-white font-medium' : 'text-zinc-400'}`}
-                  >
-                    <div className={`w-3 h-3 rounded-full ${t.color}`} />
-                    {t.name}
-                  </button>
-                ))}
+              <div className="absolute right-0 top-12 w-52 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl p-3 z-50 animate-fade-in flex flex-col gap-3 max-h-[80vh] overflow-y-auto">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1 px-1">Кольорова схема</p>
+                  <div className="flex flex-col gap-0.5">
+                    {[
+                      { id: 'default', name: 'Стандартна', color: 'bg-zinc-800' },
+                      { id: 'ocean', name: 'Океан', color: 'bg-blue-600' },
+                      { id: 'cyberpunk', name: 'Кіберпанк', color: 'bg-fuchsia-600' },
+                      { id: 'forest', name: 'Ліс', color: 'bg-emerald-600' },
+                      { id: 'rose', name: 'Троянда', color: 'bg-rose-600' },
+                    ].map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => {
+                          setTheme(t.id);
+                          saveRoomTheme(roomId, t.id);
+                          fetch('/api/messages/theme', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ roomId, theme: t.id }),
+                          });
+                        }}
+                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors hover:bg-zinc-800/80 ${theme === t.id ? 'bg-zinc-800 text-white font-medium' : 'text-zinc-400'}`}
+                      >
+                        <div className={`w-2.5 h-2.5 rounded-full ${t.color}`} />
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-zinc-800/80 pt-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-1 px-1">Стиль Шейдера</p>
+                  <div className="flex flex-col gap-0.5">
+                    {[
+                      { id: 'fluid', name: '🌊 WebGL Флюїд', icon: '✨' },
+                      { id: 'grain-corners', name: '🌾 Grain Corners', icon: '🎨' },
+                      { id: 'grain-wave', name: '〰️ Grain Wave', icon: '🌊' },
+                      { id: 'grain-blob', name: '🫧 Grain Blob', icon: '🔮' },
+                    ].map(s => (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          const newShader = s.id as ShaderType;
+                          setShaderType(newShader);
+                          saveRoomShader(roomId, newShader);
+                        }}
+                        className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors hover:bg-zinc-800/80 ${shaderType === s.id ? 'bg-blue-600/20 text-blue-400 font-medium border border-blue-500/30' : 'text-zinc-400'}`}
+                      >
+                        <span>{s.name}</span>
+                        {shaderType === s.id && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>

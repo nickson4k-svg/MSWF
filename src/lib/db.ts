@@ -16,6 +16,7 @@ export interface CachedMessage {
 export interface RoomSettings {
   roomId: string;
   theme?: string;
+  shaderType?: string;
 }
 
 class NexusChatDB extends Dexie {
@@ -71,7 +72,8 @@ export async function cleanExpiredMessages() {
 
 export async function saveRoomTheme(roomId: string, theme: string) {
   try {
-    await db.settings.put({ roomId, theme });
+    const current = await db.settings.get(roomId);
+    await db.settings.put({ ...current, roomId, theme });
   } catch (e) {
     console.warn('Failed to save room theme:', e);
   }
@@ -83,5 +85,23 @@ export async function getRoomTheme(roomId: string): Promise<string> {
     return setting?.theme || 'default';
   } catch (e) {
     return 'default';
+  }
+}
+
+export async function saveRoomShader(roomId: string, shaderType: string) {
+  try {
+    const current = await db.settings.get(roomId);
+    await db.settings.put({ ...current, roomId, shaderType });
+  } catch (e) {
+    console.warn('Failed to save room shader:', e);
+  }
+}
+
+export async function getRoomShader(roomId: string): Promise<string> {
+  try {
+    const setting = await db.settings.get(roomId);
+    return setting?.shaderType || 'fluid';
+  } catch (e) {
+    return 'fluid';
   }
 }
