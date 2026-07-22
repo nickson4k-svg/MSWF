@@ -1,7 +1,162 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { MonitorUp, User } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { MonitorUp, Mic, MicOff } from 'lucide-react';
+
+function useVoiceActivity(stream: MediaStream | null, isMuted: boolean = false) {
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  useEffect(() => {
+    if (!stream || isMuted) {
+      return;
+    }
+
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0 || !audioTracks[0].enabled) {
+      return;
+    }
+
+    let audioCtx: AudioContext | null = null;
+    let analyser: AnalyserNode | null = null;
+    let source: MediaStreamAudioSourceNode | null = null;
+    let animFrame: number;
+
+    try {
+      const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtxClass) return;
+
+      audioCtx = new AudioCtxClass();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.3;
+
+      source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      const checkVolume = () => {
+        if (!analyser) return;
+        analyser.getByteFrequencyData(dataArray);
+
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / bufferLength;
+
+        // Discord VAD threshold
+        setIsSpeaking(average > 8);
+        animFrame = requestAnimationFrame(checkVolume);
+      };
+
+      checkVolume();
+    } catch (e) {
+      console.warn('VAD Error:', e);
+    }
+
+    return () => {
+      setIsSpeaking(false);
+      if (animFrame) cancelAnimationFrame(animFrame);
+      if (audioCtx && audioCtx.state !== 'closed') {
+        audioCtx.close().catch(() => {});
+      }
+    };
+  }, [stream, isMuted]);
+
+  return !stream || isMuted ? false : isSpeaking;
+}
+
+interface ParticipantCardProps {
+  username: string;
+  stream: MediaStream | null;
+  isVideoActive: boolean;
+  isMuted: boolean;
+  isLocal?: boolean;
+  isBgBlurred?: boolean;
+}
+
+function ParticipantCard({
+  username,
+  stream,
+  isVideoActive,
+  isMuted,
+  isLocal = false,
+  isBgBlurred = false,
+}: ParticipantCardProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const isSpeaking = useVoiceActivity(stream, isMuted);
+
+  useEffect(() => {
+    if (videoRef.current && stream && isVideoActive) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(e => console.warn('Video play error:', e));
+    }
+  }, [stream, isVideoActive]);
+
+  return (
+    <div className={`relative aspect-square w-full max-w-[260px] sm:max-w-[320px] bg-zinc-900/90 border rounded-3xl flex flex-col items-center justify-center p-4 sm:p-6 shadow-2xl transition-all duration-300 ${
+      isSpeaking
+        ? 'border-emerald-500/80 shadow-[0_0_35px_rgba(16,185,129,0.4)]'
+        : 'border-zinc-800/80 hover:border-zinc-700/80'
+    }`}>
+      {/* Square Avatar Container with Discord Green Glow */}
+      <div className={`relative w-28 h-28 sm:w-40 sm:h-40 rounded-2xl overflow-hidden transition-all duration-200 border-4 flex items-center justify-center bg-zinc-950 ${
+        isSpeaking
+          ? 'border-emerald-400 shadow-[0_0_25px_rgba(52,211,153,0.8)] scale-105 ring-4 ring-emerald-500/20'
+          : isMuted
+          ? 'border-zinc-800/90 opacity-60'
+          : 'border-transparent opacity-90'
+      }`}>
+        {isVideoActive && stream ? (
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted={isLocal}
+            className={`w-full h-full object-cover ${isLocal ? 'scale-x-[-1]' : ''} ${
+              isBgBlurred ? 'blur-sm contrast-125 saturate-150' : ''
+            }`}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-zinc-950">
+            <img
+              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`}
+              alt={username}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Mic Status Icon Badge */}
+      <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
+        {isMuted ? (
+          <div className="bg-red-500/90 text-white p-2 rounded-xl border border-red-400/50 shadow-lg backdrop-blur flex items-center justify-center animate-in zoom-in-75" title="Мікрофон вимкнено">
+            <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />
+          </div>
+        ) : isSpeaking ? (
+          <div className="bg-emerald-500/90 text-white p-2 rounded-xl border border-emerald-400/50 shadow-lg backdrop-blur flex items-center justify-center animate-pulse" title="Говорить">
+            <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+          </div>
+        ) : (
+          <div className="bg-zinc-800/80 text-zinc-400 p-2 rounded-xl border border-zinc-700/50 backdrop-blur flex items-center justify-center" title="Мікрофон увімкнено">
+            <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+          </div>
+        )}
+      </div>
+
+      {/* Username Label Badge */}
+      <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-10 bg-zinc-950/80 border border-zinc-800/80 backdrop-blur px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-zinc-200 flex items-center gap-2 shadow-lg max-w-[80%] truncate">
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+          isSpeaking ? 'bg-emerald-400 animate-ping' : isMuted ? 'bg-red-400' : 'bg-zinc-500'
+        }`} />
+        <span className="truncate">{username} {isLocal ? '(Ви)' : ''}</span>
+      </div>
+    </div>
+  );
+}
 
 export const VideoGrid = ({
   localStream,
@@ -10,7 +165,9 @@ export const VideoGrid = ({
   isScreenSharing,
   isVideoOff,
   isBgBlurred,
-  targetUsername
+  targetUsername = 'Співрозмовник',
+  currentUser = 'Я',
+  isMuted,
 }: {
   localStream: MediaStream | null;
   screenStream: MediaStream | null;
@@ -19,21 +176,17 @@ export const VideoGrid = ({
   isVideoOff: boolean;
   isBgBlurred?: boolean;
   targetUsername?: string;
+  currentUser?: string;
+  isMuted: boolean;
 }) => {
-  const localCameraVideoRef = useRef<HTMLVideoElement>(null);
   const localScreenVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const secondaryRemoteVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Attach webcam stream
-  useEffect(() => {
-    if (localCameraVideoRef.current && localStream) {
-      localCameraVideoRef.current.srcObject = localStream;
-      localCameraVideoRef.current.play().catch(e => console.warn('Local camera play failed', e));
-    }
-  }, [localStream]);
+  const localHasVideo = Boolean(localStream && !isVideoOff && localStream.getVideoTracks().length > 0);
+  const remoteHasVideo = Boolean(remoteStream && remoteStream.getVideoTracks().length > 0);
+  const remoteIsMuted = !remoteStream || remoteStream.getAudioTracks().length === 0 || !remoteStream.getAudioTracks().some(t => t.enabled);
 
-  // Attach screen share stream
+  // Attach local screen share stream
   useEffect(() => {
     if (localScreenVideoRef.current && screenStream) {
       localScreenVideoRef.current.srcObject = screenStream;
@@ -41,23 +194,18 @@ export const VideoGrid = ({
     }
   }, [screenStream]);
 
-  // Attach remote stream to main & secondary
+  // Attach remote stream
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
-      remoteVideoRef.current.play().catch(e => console.warn('Remote play failed', e));
-    }
-    if (secondaryRemoteVideoRef.current && remoteStream) {
-      secondaryRemoteVideoRef.current.srcObject = remoteStream;
-      secondaryRemoteVideoRef.current.play().catch(e => console.warn('Secondary remote play failed', e));
+      remoteVideoRef.current.play().catch(e => console.warn('Remote video play failed', e));
     }
   }, [remoteStream]);
 
-  return (
-    <div className="relative w-full h-full bg-zinc-950 overflow-hidden flex items-center justify-center">
-      {/* 1. Main Stage View */}
-      {isScreenSharing && screenStream ? (
-        // I am screen sharing -> Show my screen share stream preview in main area
+  // 1. Stage mode: Screen share active
+  if (isScreenSharing && screenStream) {
+    return (
+      <div className="relative w-full h-full bg-zinc-950 overflow-hidden flex flex-col items-center justify-center">
         <div className="relative w-full h-full flex flex-col items-center justify-center bg-black">
           <video
             ref={localScreenVideoRef}
@@ -71,62 +219,82 @@ export const VideoGrid = ({
             Ваша демонстрація екрану (Прев&apos;ю)
           </div>
         </div>
-      ) : remoteStream ? (
-        // Remote participant has video/screen stream -> Show in main area
+
+        {/* Floating Discord Avatar Cards for participants */}
+        <div className="absolute bottom-28 right-6 z-30 flex items-center gap-3">
+          <ParticipantCard
+            username={currentUser}
+            stream={localStream}
+            isVideoActive={localHasVideo}
+            isMuted={isMuted}
+            isLocal
+            isBgBlurred={isBgBlurred}
+          />
+          {targetUsername && (
+            <ParticipantCard
+              username={targetUsername}
+              stream={remoteStream}
+              isVideoActive={remoteHasVideo}
+              isMuted={remoteIsMuted}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Stage mode: Remote screen share active
+  if (remoteHasVideo && remoteStream?.getVideoTracks()[0]?.label.includes('screen')) {
+    return (
+      <div className="relative w-full h-full bg-zinc-950 overflow-hidden flex flex-col items-center justify-center">
         <video
           ref={remoteVideoRef}
           autoPlay
           playsInline
           className="w-full h-full object-contain"
         />
-      ) : (
-        // No main video active -> Clean waiting placeholder
-        <div className="flex flex-col items-center justify-center text-zinc-400 space-y-4">
-          <div className="w-24 h-24 bg-zinc-900 border border-zinc-800 rounded-full flex items-center justify-center shadow-2xl animate-pulse">
-            {targetUsername ? (
-              <span className="text-4xl font-bold text-blue-400">{targetUsername[0]?.toUpperCase()}</span>
-            ) : (
-              <User className="w-10 h-10 text-zinc-600" />
-            )}
-          </div>
-          <p className="text-sm font-medium text-zinc-400">
-            {targetUsername ? `Розмова з ${targetUsername}` : 'Дзвінок активний'}
-          </p>
-        </div>
-      )}
 
-      {/* 2. Floating Secondary Window (Remote participant thumbnail if I am screen sharing) */}
-      {isScreenSharing && remoteStream && (
-        <div className="absolute top-20 right-6 w-44 sm:w-56 aspect-video bg-zinc-900 rounded-xl overflow-hidden shadow-2xl border border-zinc-800 z-20">
-          <video
-            ref={secondaryRemoteVideoRef}
-            autoPlay
-            playsInline
-            className="w-full h-full object-cover"
+        <div className="absolute bottom-28 right-6 z-30 flex items-center gap-3">
+          <ParticipantCard
+            username={currentUser}
+            stream={localStream}
+            isVideoActive={localHasVideo}
+            isMuted={isMuted}
+            isLocal
+            isBgBlurred={isBgBlurred}
           />
-          <div className="absolute bottom-1 left-2 text-[10px] text-zinc-300 font-semibold bg-black/60 px-1.5 py-0.5 rounded">
-            {targetUsername || 'Співрозмовник'}
-          </div>
+          <ParticipantCard
+            username={targetUsername}
+            stream={remoteStream}
+            isVideoActive={remoteHasVideo}
+            isMuted={remoteIsMuted}
+          />
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* 3. Floating Picture-in-Picture for My Local Webcam Preview */}
-      <div className={`absolute bottom-24 right-6 w-36 sm:w-52 aspect-video bg-zinc-900 rounded-2xl overflow-hidden shadow-2xl border-2 border-zinc-700/80 z-30 transition-all duration-300 ${
-        isVideoOff ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
-      }`}>
-        <video
-          ref={localCameraVideoRef}
-          autoPlay
-          playsInline
-          muted
-          className={`w-full h-full object-cover scale-x-[-1] transition-all duration-300 ${
-            isBgBlurred ? 'blur-sm contrast-125 saturate-150' : ''
-          }`}
+  // 3. Discord Voice Call / Video Grid Mode (Square avatars with reactive green voice glow & mute badge)
+  return (
+    <div className="relative w-full h-full bg-zinc-950 overflow-hidden flex items-center justify-center p-4 sm:p-8">
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-12 max-w-5xl w-full">
+        {/* Local User Card */}
+        <ParticipantCard
+          username={currentUser}
+          stream={localStream}
+          isVideoActive={localHasVideo}
+          isMuted={isMuted}
+          isLocal
+          isBgBlurred={isBgBlurred}
         />
-        <div className="absolute bottom-1.5 left-2 text-[10px] text-white font-medium bg-black/60 backdrop-blur px-2 py-0.5 rounded-full flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Ви (Вебкамера)
-        </div>
+
+        {/* Remote User Card */}
+        <ParticipantCard
+          username={targetUsername}
+          stream={remoteStream}
+          isVideoActive={remoteHasVideo}
+          isMuted={remoteIsMuted}
+        />
       </div>
     </div>
   );
