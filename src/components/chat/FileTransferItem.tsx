@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 import { FileTransfer } from '@/hooks/useFileTransfer';
 import { formatBytes } from '@/lib/webrtc';
 import { X, Download, File, Image as ImageIcon, FileText, Film, Music, Box } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GemSmoke } from '@paper-design/shaders-react';
+
+const subscribe = () => () => {};
+const getSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 const getFileIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return <ImageIcon className="w-5 h-5 text-blue-400" />;
@@ -21,14 +25,10 @@ export const FileTransferItem = ({
   transfer: FileTransfer, 
   onCancel: (id: string) => void 
 }) => {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const isCompleted = transfer.status === 'completed';
   const isError = transfer.status === 'error' || transfer.status === 'rejected';
   const isTransferring = transfer.status === 'transferring' || transfer.status === 'connecting';
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   return (
     <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 flex items-center justify-between gap-3 group relative overflow-hidden">

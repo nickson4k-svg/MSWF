@@ -82,7 +82,7 @@ export const useFileTransfer = (
     }
   }
 
-  const joinTransferRoom = async (transferId: string) => {
+  const joinTransferRoom = useCallback(async (transferId: string) => {
     const lkRoomId = `file-transfer-${transferId}`;
     const res = await fetch('/api/livekit', {
       method: 'POST',
@@ -94,7 +94,7 @@ export const useFileTransfer = (
     roomsRef.current[transferId] = room;
     await room.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, token);
     return room;
-  };
+  }, [currentUser]);
 
   const initiateTransfer = useCallback(async (file: File, targetUsername: string, conversationRoomId?: string) => {
     const transferId = Math.random().toString(36).substring(2, 10);
@@ -119,7 +119,7 @@ export const useFileTransfer = (
         type: 'file-offer',
         fileMeta: { fileName: file.name, fileSize: file.size, mimeType: file.type },
         roomId: conversationRoomId
-      } as any);
+      });
 
       // Wait for receiver's READY signal before sending
       room.on(RoomEvent.DataReceived, async (payload, _p, _kind, topic) => {
@@ -146,7 +146,7 @@ export const useFileTransfer = (
       console.error('Failed to initiate transfer', e);
       updateTransferStatus(transferId, 'error');
     }
-  }, [currentUser, onTransferComplete]);
+  }, [currentUser, joinTransferRoom, onTransferComplete]);
 
   const acceptOffer = useCallback(async () => {
     if (!pendingOffer) return;
@@ -208,7 +208,7 @@ export const useFileTransfer = (
       console.error('Failed to accept transfer', e);
       updateTransferStatus(id, 'error');
     }
-  }, [pendingOffer, currentUser, onTransferComplete]);
+  }, [pendingOffer, currentUser, joinTransferRoom, onTransferComplete]);
 
   const rejectOffer = useCallback(async () => {
     if (!pendingOffer) return;

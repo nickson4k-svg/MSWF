@@ -83,7 +83,7 @@ export async function getRoomTheme(roomId: string): Promise<string> {
   try {
     const setting = await db.settings.get(roomId);
     return setting?.theme || 'default';
-  } catch (e) {
+  } catch {
     return 'default';
   }
 }
@@ -92,7 +92,7 @@ export async function saveRoomShader(roomId: string, shaderType: string) {
   try {
     const current = await db.settings.get(roomId);
     await db.settings.put({ ...current, roomId, shaderType });
-  } catch (e) {
+  } catch {
     console.warn('Failed to save room shader:', e);
   }
 }
@@ -101,7 +101,7 @@ export async function getRoomShader(roomId: string): Promise<string> {
   try {
     const setting = await db.settings.get(roomId);
     return setting?.shaderType || 'fluid';
-  } catch (e) {
+  } catch {
     return 'fluid';
   }
 }

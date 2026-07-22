@@ -1,9 +1,13 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 import { FileTransfer } from '@/hooks/useFileTransfer';
 import { FileTransferItem } from './FileTransferItem';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GemSmoke } from '@paper-design/shaders-react';
+
+const subscribe = () => () => {};
+const getSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 export const FileTransferSidebar = ({
   transfers,
@@ -17,12 +21,8 @@ export const FileTransferSidebar = ({
   isFriendOnline: boolean;
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const hasActiveTransfers = transfers.some(t => t.status === 'transferring' || t.status === 'connecting');
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -58,43 +58,46 @@ export const FileTransferSidebar = ({
           </div>
         )}
 
-        <h3 className="text-zinc-100 font-semibold flex items-center gap-2 text-sm z-10">
-          Файли
-          {hasActiveTransfers && (
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-          )}
-        </h3>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="w-7 h-7 rounded-full bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 disabled:opacity-50"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!isFriendOnline}
-          title={!isFriendOnline ? 'Друг офлайн' : 'Відправити файл'}
-        >
-          <Plus className="w-4 h-4" />
-        </Button>
+        <div className="relative z-10">
+          <h2 className="font-semibold text-sm text-zinc-100 flex items-center gap-2">
+            <span>P2P Файли</span>
+            {hasActiveTransfers && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            )}
+          </h2>
+          <p className="text-[11px] text-zinc-500 font-medium">Пряма передача між браузерами</p>
+        </div>
+
         <input 
           type="file" 
           ref={fileInputRef} 
           className="hidden" 
-          onChange={handleFileSelect}
+          onChange={handleFileSelect} 
         />
+
+        <Button
+          size="sm"
+          className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs gap-1 shadow-lg shadow-emerald-950/40 relative z-10 border border-emerald-500/30"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={!isFriendOnline}
+          title={isFriendOnline ? "Надіслати файл" : "Співрозмовник офлайн"}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>Надіслати</span>
+        </Button>
       </div>
 
-      <div className="p-3 flex-1 overflow-y-auto space-y-2 relative">
+      <div className="flex-1 p-3 space-y-2 overflow-y-auto max-h-[calc(100vh-12rem)]">
         {transfers.length === 0 ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-zinc-500 text-xs">
-            {isFriendOnline 
-              ? "Перетягніть файл у чат або натисніть '+' для швидкої передачі напряму."
-              : "P2P передача працює лише коли друг онлайн."
-            }
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-500">
+            <p className="text-xs">Історія передач порожня</p>
+            <p className="text-[10px] text-zinc-600 mt-1">Натисніть &quot;Надіслати&quot; або перетягніть файл у чат</p>
           </div>
         ) : (
-          transfers.map(transfer => (
+          transfers.map(t => (
             <FileTransferItem 
-              key={transfer.id} 
-              transfer={transfer} 
+              key={t.id} 
+              transfer={t} 
               onCancel={onCancelTransfer} 
             />
           ))

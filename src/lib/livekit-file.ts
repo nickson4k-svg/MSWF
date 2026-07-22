@@ -64,7 +64,7 @@ export const receiveFileOverLiveKit = (
   let receivedBytes = 0;
   const chunks: Uint8Array[] = [];
 
-  const dataHandler = (payload: Uint8Array, _participant: any, _kind: any, topic?: string) => {
+  const dataHandler = (payload: Uint8Array, _participant: unknown, _kind: unknown, topic?: string) => {
     if (topic === 'file-chunk') {
       // Copy the payload to avoid detached buffer issues
       const copy = new Uint8Array(payload.length);
@@ -79,7 +79,7 @@ export const receiveFileOverLiveKit = (
       room.off(RoomEvent.DataReceived, dataHandler);
 
       try {
-        const blob = new Blob(chunks as any[], {
+        const blob = new Blob(chunks, {
           type: meta.mimeType || 'application/octet-stream',
         });
 

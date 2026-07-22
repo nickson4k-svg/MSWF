@@ -1,6 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore } from 'react';
+
+const subscribeSync = () => () => {};
+const getSnapshotSync = () => true;
+const getServerSnapshotSync = () => false;
 import { useRouter } from 'next/navigation';
 import { getPusherClient, sanitizeChannelName } from '@/lib/pusher';
 import { Button } from '@/components/ui/button';
@@ -20,11 +24,9 @@ import { LinkPreview } from '@/components/chat/LinkPreview';
 import { Timer, Clock, Mic, Square } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { generateKeyFromRoomId, encryptText, decryptText } from '@/lib/e2ee';
-import EmojiPicker, { Theme } from 'emoji-picker-react';
-import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, saveRoomTheme, getRoomShader, saveRoomShader } from '@/lib/db';
+import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, saveRoomTheme, getRoomShader } from '@/lib/db';
 import { ShaderBackground, type ShaderType } from '@/components/ui/ShaderBackground';
 import { GemSmoke } from '@paper-design/shaders-react';
-import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { ThemePickerModal } from '@/components/chat/ThemePickerModal';
 import { ChatInput } from '@/components/chat/ChatInput';
@@ -107,7 +109,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [inputText, setInputText] = useState('');
   const [username, setUsername] = useState('');
   const [copied, setCopied] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useSyncExternalStore(subscribeSync, getSnapshotSync, getServerSnapshotSync);
   const [isDragging, setIsDragging] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false); // Feature 13: Emoji Picker
   const [isOnline, setIsOnline] = useState(true); // Feature 13: Offline Queue
@@ -117,8 +119,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   
   // Feature 15: Last Seen tracking
   const [targetPresence, setTargetPresence] = useState<{ isOnline: boolean; lastSeen: number | null }>({ isOnline: false, lastSeen: null });
-  const [offlineQueue, setOfflineQueue] = useState<any[]>([]);
-  const offlineQueueRef = useRef<any[]>([]);
+  const [offlineQueue, setOfflineQueue] = useState<unknown[]>([]);
+  const offlineQueueRef = useRef<unknown[]>([]);
   
   // Feature 12: Context Menu and Selection
   const [contextMenu, setContextMenu] = useState<{ msg: Message, x: number, y: number } | null>(null);
@@ -400,7 +402,6 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
   useEffect(() => {
     let mounted = true;
-    setIsOnline(navigator.onLine);
 
     const handleOnline = async () => {
       setIsOnline(true);
@@ -418,7 +419,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             console.error('Failed to flush message:', e);
           }
         }
-        setOfflineQueue([]);
+        offlineQueueRef.current = [];
       }
     };
     const handleOffline = () => setIsOnline(false);
@@ -426,7 +427,6 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    setIsMounted(true);
     fetch('/api/auth/me')
       .then(res => res.json())
       .then(data => {
@@ -821,7 +821,6 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           targetUsername={targetUsername}
           targetPresence={targetPresence}
           typingText={typingText}
-          showThemePicker={showThemePicker}
           onBack={() => router.push('/')}
           onToggleThemePicker={() => setShowThemePicker(!showThemePicker)}
           onStartCall={startCall}

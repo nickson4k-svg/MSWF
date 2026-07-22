@@ -1,7 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { GrainGradient } from '@paper-design/shaders-react';
+
+const subscribe = () => () => {};
+const getSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 const vertexShaderSource = `
   attribute vec2 a_position;
@@ -121,11 +125,7 @@ export const ShaderBackground = ({
   shaderType?: ShaderType;
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
     if (shaderType !== 'fluid') return;
@@ -209,7 +209,7 @@ export const ShaderBackground = ({
     gl.uniform3f(color3Location, rgb3[0], rgb3[1], rgb3[2]);
 
     let animationFrameId: number;
-    let startTime = performance.now();
+    const startTime = performance.now();
 
     const render = (time: number) => {
       gl.uniform1f(timeLocation, (time - startTime) * 0.001);

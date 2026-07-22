@@ -1,7 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 import { Dithering } from '@paper-design/shaders-react';
+
+const subscribe = () => () => {};
+const getSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 export const DitheringStatusIndicator = ({
   isOnline = true,
@@ -12,11 +16,7 @@ export const DitheringStatusIndicator = ({
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }) => {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const sizeClasses = {
     sm: 'w-4 h-4',

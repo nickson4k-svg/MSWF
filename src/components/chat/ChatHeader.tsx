@@ -13,7 +13,6 @@ interface ChatHeaderProps {
   targetUsername?: string;
   targetPresence: { isOnline: boolean; lastSeen: number | null };
   typingText: string | null;
-  showThemePicker: boolean;
   onBack: () => void;
   onToggleThemePicker: () => void;
   onStartCall?: (target: string) => void;
@@ -25,7 +24,6 @@ export function ChatHeader({
   targetUsername,
   targetPresence,
   typingText,
-  showThemePicker,
   onBack,
   onToggleThemePicker,
   onStartCall,

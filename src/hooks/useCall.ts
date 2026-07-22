@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getPusherClient } from '@/lib/pusher';
-import { sendSignal } from '@/lib/webrtc';
-import { Room, RoomEvent, Track, LocalVideoTrack, LocalAudioTrack, ConnectionQuality, RemoteParticipant, LocalParticipant, Participant, createLocalTracks } from 'livekit-client';
+import { sendSignal, WebRTCSignal } from '@/lib/webrtc';
+import { Room, RoomEvent, Track, ConnectionQuality, Participant } from 'livekit-client';
 
 export type CallState = 'idle' | 'calling' | 'ringing' | 'connected' | 'ended';
 
@@ -84,7 +84,7 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
           type: 'reject',
           transferId: currentCallIdRef.current,
           isCallSignal: true
-        } as any);
+        });
       }
     }
 
@@ -112,7 +112,7 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
     const channelName = `user-${currentUser}`;
     const channel = pusher.subscribe(channelName);
 
-    channel.bind('webrtc-signal', async (data: any) => {
+    channel.bind('webrtc-signal', async (data: WebRTCSignal) => {
       if (!data.isCallSignal) return;
       const { type, senderUsername, transferId } = data;
 
@@ -125,7 +125,7 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
             transferId,
             isCallSignal: true,
             payload: { reason: 'busy' }
-          } as any);
+          });
           return;
         }
         setIncomingCall({ sender: senderUsername, callId: transferId });
@@ -229,7 +229,7 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
       payload: {},
       transferId: callId,
       isCallSignal: true
-    } as any);
+    });
   };
 
   const acceptCall = async () => {
@@ -249,7 +249,7 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
       type: 'reject',
       transferId: incomingCall.callId,
       isCallSignal: true
-    } as any);
+    });
     
     setIncomingCall(null);
     setCallState('idle');
