@@ -79,7 +79,7 @@ export const receiveFileOverLiveKit = (
       room.off(RoomEvent.DataReceived, dataHandler);
 
       try {
-        const blob = new Blob(chunks, {
+        const blob = new Blob(chunks as unknown as BlobPart[], {
           type: meta.mimeType || 'application/octet-stream',
         });
 

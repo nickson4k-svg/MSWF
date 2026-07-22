@@ -38,8 +38,8 @@ export const db = new NexusChatDB();
 export async function cacheMessages(msgs: CachedMessage[]) {
   try {
     await db.messages.bulkPut(msgs);
-  } catch (e) {
-    console.warn('Failed to cache messages:', e);
+  } catch (err) {
+    console.warn('Failed to cache messages:', err);
   }
 }
 
@@ -50,8 +50,8 @@ export async function getCachedMessages(roomId: string): Promise<CachedMessage[]
       .where('roomId')
       .equals(roomId)
       .sortBy('timestamp');
-  } catch (e) {
-    console.warn('Failed to get cached messages:', e);
+  } catch (err) {
+    console.warn('Failed to get cached messages:', err);
     return [];
   }
 }
@@ -65,8 +65,8 @@ export async function cleanExpiredMessages() {
     if (expired.length > 0) {
       await db.messages.bulkDelete(expired.map(m => m.id));
     }
-  } catch (e) {
-    console.warn('Failed to clean expired messages:', e);
+  } catch (err) {
+    console.warn('Failed to clean expired messages:', err);
   }
 }
 
@@ -74,8 +74,8 @@ export async function saveRoomTheme(roomId: string, theme: string) {
   try {
     const current = await db.settings.get(roomId);
     await db.settings.put({ ...current, roomId, theme });
-  } catch (e) {
-    console.warn('Failed to save room theme:', e);
+  } catch (err) {
+    console.warn('Failed to save room theme:', err);
   }
 }
 
@@ -92,8 +92,8 @@ export async function saveRoomShader(roomId: string, shaderType: string) {
   try {
     const current = await db.settings.get(roomId);
     await db.settings.put({ ...current, roomId, shaderType });
-  } catch {
-    console.warn('Failed to save room shader:', e);
+  } catch (err) {
+    console.warn('Failed to save room shader:', err);
   }
 }
 
