@@ -3,6 +3,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { MonitorUp, Mic, MicOff } from 'lucide-react';
 
+function useUserProfile(username?: string) {
+  const [avatar, setAvatar] = useState<string>('');
+
+  useEffect(() => {
+    if (!username) return;
+    let mounted = true;
+
+    fetch(`/api/profile?username=${encodeURIComponent(username)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (mounted && data.avatar) {
+          setAvatar(data.avatar);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, [username]);
+
+  return avatar;
+}
+
 function useVoiceActivity(stream: MediaStream | null, isMuted: boolean = false) {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -27,8 +51,8 @@ function useVoiceActivity(stream: MediaStream | null, isMuted: boolean = false) 
 
       audioCtx = new AudioCtxClass();
       analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.3;
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.4;
 
       source = audioCtx.createMediaStreamSource(stream);
       source.connect(analyser);
@@ -47,7 +71,7 @@ function useVoiceActivity(stream: MediaStream | null, isMuted: boolean = false) 
         const average = sum / bufferLength;
 
         // Discord VAD threshold
-        setIsSpeaking(average > 8);
+        setIsSpeaking(average > 6);
         animFrame = requestAnimationFrame(checkVolume);
       };
 
@@ -75,6 +99,7 @@ interface ParticipantCardProps {
   isMuted: boolean;
   isLocal?: boolean;
   isBgBlurred?: boolean;
+  customAvatar?: string;
 }
 
 function ParticipantCard({
@@ -84,10 +109,16 @@ function ParticipantCard({
   isMuted,
   isLocal = false,
   isBgBlurred = false,
+  customAvatar,
 }: ParticipantCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const fetchedAvatar = useUserProfile(username);
   const isSpeaking = useVoiceActivity(stream, isMuted);
 
+  const displayAvatar = customAvatar || fetchedAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`;
+
+  // Video track playback
   useEffect(() => {
     if (videoRef.current && stream && isVideoActive) {
       videoRef.current.srcObject = stream;
@@ -95,12 +126,26 @@ function ParticipantCard({
     }
   }, [stream, isVideoActive]);
 
+  // Audio track playback for remote participant to enable WebRTC audio decoding & speaker output
+  useEffect(() => {
+    if (!isLocal && audioRef.current && stream) {
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        audioRef.current.srcObject = stream;
+        audioRef.current.play().catch(e => console.warn('Remote audio play error:', e));
+      }
+    }
+  }, [isLocal, stream]);
+
   return (
     <div className={`relative aspect-square w-full max-w-[260px] sm:max-w-[320px] bg-zinc-900/90 border rounded-3xl flex flex-col items-center justify-center p-4 sm:p-6 shadow-2xl transition-all duration-300 ${
       isSpeaking
         ? 'border-emerald-500/80 shadow-[0_0_35px_rgba(16,185,129,0.4)]'
         : 'border-zinc-800/80 hover:border-zinc-700/80'
     }`}>
+      {/* Hidden audio element for remote stream to ensure browser plays & decodes remote audio */}
+      {!isLocal && <audio ref={audioRef} autoPlay playsInline className="hidden" />}
+
       {/* Square Avatar Container with Discord Green Glow */}
       <div className={`relative w-28 h-28 sm:w-40 sm:h-40 rounded-2xl overflow-hidden transition-all duration-200 border-4 flex items-center justify-center bg-zinc-950 ${
         isSpeaking
@@ -122,7 +167,7 @@ function ParticipantCard({
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-zinc-950">
             <img
-              src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`}
+              src={displayAvatar}
               alt={username}
               className="w-full h-full object-cover"
             />
@@ -274,7 +319,7 @@ export const VideoGrid = ({
     );
   }
 
-  // 3. Discord Voice Call / Video Grid Mode (Square avatars with reactive green voice glow & mute badge)
+  // 3. Discord Voice Call / Video Grid Mode (Square avatars with reactive green voice glow & mic status badge)
   return (
     <div className="relative w-full h-full bg-zinc-950 overflow-hidden flex items-center justify-center p-4 sm:p-8">
       <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-12 max-w-5xl w-full">
