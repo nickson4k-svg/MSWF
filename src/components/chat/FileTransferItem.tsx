@@ -34,23 +34,23 @@ export const FileTransferItem = ({
     <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 flex items-center justify-between gap-3 group relative overflow-hidden">
       {/* GemSmoke Shader Background during active transfer */}
       {mounted && isTransferring && (
-        <div className="absolute inset-0 z-0 opacity-40 pointer-events-none overflow-hidden rounded-xl">
+        <div className="absolute inset-0 z-0 opacity-25 pointer-events-none overflow-hidden rounded-xl">
           <GemSmoke
             width="100%"
             height="100%"
             colors={["#2fb64c", "#cdff61", "#ffffff", "#0aff78"]}
-            colorBack="#000000"
-            colorInner="#000000"
-            shape="diamond"
-            innerDistortion={1}
-            outerDistortion={0.8}
-            outerGlow={0}
+            colorBack="#09090b"
+            colorInner="#09090b"
+            shape="none"
+            innerDistortion={0.7}
+            outerDistortion={0.7}
+            outerGlow={1}
             innerGlow={1}
             offset={0}
-            angle={0}
-            size={0.8}
+            angle={45}
+            size={0.9}
             speed={1}
-            scale={0.6}
+            scale={2.2}
             fit="cover"
           />
         </div>

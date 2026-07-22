@@ -36,23 +36,23 @@ export const FileTransferSidebar = ({
       <div className="p-4 border-b border-zinc-800 flex justify-between items-center relative overflow-hidden">
         {/* GemSmoke Shader header background when active transfers occur */}
         {mounted && hasActiveTransfers && (
-          <div className="absolute inset-0 z-0 opacity-30 pointer-events-none">
+          <div className="absolute inset-0 z-0 opacity-20 pointer-events-none overflow-hidden">
             <GemSmoke
               width="100%"
               height="100%"
               colors={["#2fb64c", "#cdff61", "#ffffff", "#0aff78"]}
-              colorBack="#000000"
-              colorInner="#000000"
-              shape="diamond"
-              innerDistortion={1}
-              outerDistortion={0.8}
-              outerGlow={0}
+              colorBack="#09090b"
+              colorInner="#09090b"
+              shape="none"
+              innerDistortion={0.7}
+              outerDistortion={0.7}
+              outerGlow={1}
               innerGlow={1}
               offset={0}
-              angle={0}
-              size={0.8}
+              angle={45}
+              size={0.9}
               speed={1}
-              scale={0.6}
+              scale={2.2}
               fit="cover"
             />
           </div>

@@ -766,23 +766,23 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       >
         {isDragging && targetUsername && (
           <div className="absolute inset-0 z-50 bg-black/80 border-2 border-dashed border-emerald-500 rounded-2xl flex items-center justify-center pointer-events-none backdrop-blur-md overflow-hidden animate-fade-in">
-            <div className="absolute inset-0 opacity-60 pointer-events-none">
+            <div className="absolute inset-0 opacity-40 pointer-events-none">
               <GemSmoke
                 width="100%"
                 height="100%"
                 colors={["#2fb64c", "#cdff61", "#ffffff", "#0aff78"]}
-                colorBack="#000000"
-                colorInner="#000000"
-                shape="diamond"
-                innerDistortion={1}
-                outerDistortion={0.8}
-                outerGlow={0}
+                colorBack="#09090b"
+                colorInner="#09090b"
+                shape="none"
+                innerDistortion={0.7}
+                outerDistortion={0.7}
+                outerGlow={1}
                 innerGlow={1}
                 offset={0}
-                angle={0}
-                size={0.8}
+                angle={45}
+                size={0.9}
                 speed={1}
-                scale={0.6}
+                scale={2.2}
                 fit="cover"
               />
             </div>
