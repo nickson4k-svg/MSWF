@@ -19,13 +19,14 @@ export const DitheringStatusIndicator = ({
   }, []);
 
   const sizeClasses = {
-    sm: 'w-3.5 h-3.5',
-    md: 'w-4.5 h-4.5',
+    sm: 'w-4 h-4',
+    md: 'w-5 h-5',
     lg: 'w-6 h-6',
   };
 
   const currentSizeClass = sizeClasses[size] || sizeClasses.md;
-  const colorFront = isOnline ? '#00ff44' : '#71717a';
+  const colorFront = isOnline ? '#00ff44' : '#9ca3af';
+  const colorBack = isOnline ? '#022c22' : '#18181b';
 
   if (!mounted) {
     return (
@@ -39,19 +40,21 @@ export const DitheringStatusIndicator = ({
 
   return (
     <div
-      className={`relative inline-block rounded-full overflow-hidden border border-zinc-800 shadow-md flex-shrink-0 ${currentSizeClass} ${className}`}
+      className={`relative inline-block rounded-full overflow-hidden border ${
+        isOnline ? 'border-emerald-400/60 shadow-[0_0_10px_rgba(0,255,68,0.6)]' : 'border-zinc-700 shadow-none'
+      } flex-shrink-0 ${currentSizeClass} ${className}`}
       title={isOnline ? 'Мережа: Онлайн' : 'Мережа: Офлайн'}
     >
       <Dithering
-        width="100%"
-        height="100%"
-        colorBack="#000000"
+        width={40}
+        height={40}
+        colorBack={colorBack}
         colorFront={colorFront}
         shape="sphere"
         type="4x4"
-        size={8.8}
-        speed={isOnline ? 1 : 0}
-        scale={0.6}
+        size={2.5}
+        speed={isOnline ? 1.5 : 0}
+        scale={1.2}
         fit="cover"
       />
     </div>
