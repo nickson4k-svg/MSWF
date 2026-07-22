@@ -5,6 +5,8 @@ import { Mic, MicOff, Video, VideoOff, MonitorUp, MonitorX, PhoneOff, Circle, Sq
 import { Button } from '@/components/ui/button';
 import { VideoGrid } from './VideoGrid';
 
+import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
+
 // Feature 17: Connection quality indicator
 function useConnectionQuality(pc: RTCPeerConnection | null) {
   const [quality, setQuality] = useState(0); // 0-5 bars
@@ -195,8 +197,8 @@ export const CallScreen = ({
     <div className="absolute inset-0 z-50 bg-zinc-950 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300">
       {/* Header */}
       <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-zinc-950/90 to-transparent z-10 flex items-center justify-between px-6 pointer-events-none">
-        <div className="flex items-center gap-2 text-zinc-200">
-          <span className="w-2.5 h-2.5 bg-emerald-500 animate-pixel-flame"></span>
+        <div className="flex items-center gap-2 text-zinc-200 font-medium text-sm">
+          <DitheringStatusIndicator isOnline={true} size="sm" />
           Дзвінок з {targetUsername || incomingCall?.sender}
         </div>
         {/* Feature 17: Signal quality + stats */}

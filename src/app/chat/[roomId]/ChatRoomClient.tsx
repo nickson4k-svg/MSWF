@@ -24,6 +24,7 @@ import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, saveRoomTheme, getRoomShader, saveRoomShader } from '@/lib/db';
 import { ShaderBackground, type ShaderType } from '@/components/ui/ShaderBackground';
 import { GemSmoke } from '@paper-design/shaders-react';
+import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
 
 interface Message {
   id: string;
@@ -822,7 +823,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           </Button>
           <div className="flex flex-col">
             <h1 className="font-bold text-lg leading-tight text-zinc-100 flex items-center gap-2">
-              <span className="w-2.5 h-2.5 bg-emerald-500 animate-pixel-flame"></span>
+              <DitheringStatusIndicator isOnline={targetUsername ? targetPresence.isOnline : true} size="sm" />
               {roomId.startsWith('private-') 
                 ? `Приватний чат з ${roomId.replace('private-', '').split('-').find(u => u !== username)}`
                 : `Кімната ${roomId}`

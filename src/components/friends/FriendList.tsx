@@ -8,6 +8,8 @@ import { MessageSquare, UserMinus, Plus } from 'lucide-react';
 import { AddFriendModal } from './AddFriendModal';
 import Pusher from 'pusher-js';
 
+import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
+
 export function FriendList({ currentUser }: { currentUser: string }) {
   const [friends, setFriends] = useState<FriendWithStatus[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -91,7 +93,9 @@ export function FriendList({ currentUser }: { currentUser: string }) {
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <img src={friend.avatar} alt={friend.displayName} className="w-10 h-10 rounded-xl bg-zinc-800" />
-                  <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 border-2 border-zinc-900 ${friend.isOnline ? 'bg-emerald-500 animate-pixel-flame' : 'bg-zinc-500 rounded-sm'}`} />
+                  <div className="absolute -bottom-1 -right-1 z-10">
+                    <DitheringStatusIndicator isOnline={friend.isOnline} size="sm" />
+                  </div>
                 </div>
                 <div>
                   <p className="text-zinc-100 font-medium text-sm leading-tight">{friend.displayName}</p>
