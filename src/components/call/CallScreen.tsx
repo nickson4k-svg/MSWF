@@ -72,6 +72,7 @@ export const CallScreen = ({
   isScreenSharing,
   targetUsername,
   currentUser,
+  currentUserAvatar,
   onAccept,
   onReject,
   onEnd,
@@ -92,6 +93,7 @@ export const CallScreen = ({
   isScreenSharing: boolean;
   targetUsername?: string;
   currentUser?: string;
+  currentUserAvatar?: string;
   onAccept: () => void;
   onReject: () => void;
   onEnd: () => void;
@@ -223,6 +225,7 @@ export const CallScreen = ({
           isBgBlurred={isBgBlurred}
           targetUsername={targetUsername || incomingCall?.sender}
           currentUser={currentUser}
+          currentUserAvatar={currentUserAvatar}
           isMuted={isMuted}
         />
         

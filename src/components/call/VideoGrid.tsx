@@ -212,6 +212,7 @@ export const VideoGrid = ({
   isBgBlurred,
   targetUsername = 'Співрозмовник',
   currentUser = 'Я',
+  currentUserAvatar,
   isMuted,
 }: {
   localStream: MediaStream | null;
@@ -222,6 +223,7 @@ export const VideoGrid = ({
   isBgBlurred?: boolean;
   targetUsername?: string;
   currentUser?: string;
+  currentUserAvatar?: string;
   isMuted: boolean;
 }) => {
   const localScreenVideoRef = useRef<HTMLVideoElement>(null);
@@ -274,6 +276,7 @@ export const VideoGrid = ({
             isMuted={isMuted}
             isLocal
             isBgBlurred={isBgBlurred}
+            customAvatar={currentUserAvatar}
           />
           {targetUsername && (
             <ParticipantCard
@@ -307,6 +310,7 @@ export const VideoGrid = ({
             isMuted={isMuted}
             isLocal
             isBgBlurred={isBgBlurred}
+            customAvatar={currentUserAvatar}
           />
           <ParticipantCard
             username={targetUsername}
@@ -331,6 +335,7 @@ export const VideoGrid = ({
           isMuted={isMuted}
           isLocal
           isBgBlurred={isBgBlurred}
+          customAvatar={currentUserAvatar}
         />
 
         {/* Remote User Card */}

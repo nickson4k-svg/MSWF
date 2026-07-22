@@ -108,6 +108,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [messages, setMessages] = useState<Message[]>(initialHistory);
   const [inputText, setInputText] = useState('');
   const [username, setUsername] = useState('');
+  const [currentUserAvatar, setCurrentUserAvatar] = useState('');
   const [copied, setCopied] = useState(false);
   const isMounted = useSyncExternalStore(subscribeSync, getSnapshotSync, getServerSnapshotSync);
   const [isDragging, setIsDragging] = useState(false);
@@ -433,6 +434,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         if (!mounted) return;
         if (data.username) {
           setUsername(data.username);
+          if (data.avatar) setCurrentUserAvatar(data.avatar);
         } else {
           router.push('/login');
         }
@@ -751,6 +753,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         isVideoOff={isVideoOff}
         isScreenSharing={isScreenSharing}
         targetUsername={targetUsername}
+        currentUser={username}
+        currentUserAvatar={currentUserAvatar}
         onAccept={acceptCall}
         onReject={rejectCall}
         onEnd={endCall}
