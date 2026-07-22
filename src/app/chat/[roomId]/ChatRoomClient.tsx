@@ -22,6 +22,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { generateKeyFromRoomId, encryptText, decryptText } from '@/lib/e2ee';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, saveRoomTheme } from '@/lib/db';
+import { ShaderBackground } from '@/components/ui/ShaderBackground';
 
 interface Message {
   id: string;
@@ -70,11 +71,11 @@ const TTL_OPTIONS = [
 
 const getThemeClasses = (theme: string) => {
   switch (theme) {
-    case 'ocean': return 'bg-gradient-to-br from-blue-950/80 to-slate-900/80 border-blue-900/50';
-    case 'cyberpunk': return 'bg-gradient-to-br from-fuchsia-950/80 to-violet-950/80 border-fuchsia-900/50';
-    case 'forest': return 'bg-gradient-to-br from-emerald-950/80 to-zinc-900/80 border-emerald-900/50';
-    case 'rose': return 'bg-gradient-to-br from-rose-950/80 to-zinc-900/80 border-rose-900/50';
-    default: return 'bg-zinc-950/60 border-zinc-800/50';
+    case 'ocean': return 'bg-gradient-to-br from-blue-950/40 to-slate-900/40 border-blue-900/50 backdrop-blur-2xl';
+    case 'cyberpunk': return 'bg-gradient-to-br from-fuchsia-950/40 to-violet-950/40 border-fuchsia-900/50 backdrop-blur-2xl';
+    case 'forest': return 'bg-gradient-to-br from-emerald-950/40 to-zinc-900/40 border-emerald-900/50 backdrop-blur-2xl';
+    case 'rose': return 'bg-gradient-to-br from-rose-950/40 to-zinc-900/40 border-rose-900/50 backdrop-blur-2xl';
+    default: return 'bg-zinc-950/40 border-zinc-800/50 backdrop-blur-2xl';
   }
 };
 
@@ -724,6 +725,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
   return (
     <>
+      <ShaderBackground theme={theme} />
       {pendingOffer && (
         <FileTransferModal 
           senderName={pendingOffer.sender}
