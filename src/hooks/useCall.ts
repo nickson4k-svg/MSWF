@@ -5,6 +5,89 @@ import { Room, RoomEvent, Track, ConnectionQuality, Participant } from 'livekit-
 
 export type CallState = 'idle' | 'calling' | 'ringing' | 'connected' | 'ended';
 
+// Web Audio API Ringtone Synthesizer for incoming call & outgoing ringback
+class CallRingtone {
+  private ctx: AudioContext | null = null;
+  private timer: NodeJS.Timeout | null = null;
+
+  start(mode: 'incoming' | 'outgoing') {
+    this.stop();
+    try {
+      const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtxClass) return;
+
+      this.ctx = new AudioCtxClass();
+
+      const playTone = () => {
+        if (!this.ctx || this.ctx.state === 'closed') return;
+        const now = this.ctx.currentTime;
+
+        if (mode === 'incoming') {
+          // Futuristic Discord / iPhone style dual tone ring (520Hz + 650Hz pulse)
+          const osc1 = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc1.type = 'sine';
+          osc2.type = 'sine';
+          osc1.frequency.setValueAtTime(520, now);
+          osc2.frequency.setValueAtTime(650, now);
+
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 1.4);
+          osc2.stop(now + 1.4);
+        } else {
+          // Outgoing ringback tone (440Hz + 480Hz soft pulse)
+          const osc1 = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc1.type = 'sine';
+          osc2.type = 'sine';
+          osc1.frequency.setValueAtTime(440, now);
+          osc2.frequency.setValueAtTime(480, now);
+
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 1.8);
+          osc2.stop(now + 1.8);
+        }
+      };
+
+      playTone();
+      this.timer = setInterval(playTone, mode === 'incoming' ? 2200 : 3000);
+    } catch (e) {
+      console.warn('Failed to play call ringtone:', e);
+    }
+  }
+
+  stop() {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+    if (this.ctx && this.ctx.state !== 'closed') {
+      this.ctx.close().catch(() => {});
+      this.ctx = null;
+    }
+  }
+}
+
 export const useCall = (currentUser: string, targetUsername?: string) => {
   const [callState, setCallState] = useState<CallState>('idle');
   const [incomingCall, setIncomingCall] = useState<{ sender: string; callId: string } | null>(null);
@@ -20,8 +103,28 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
 
   const currentCallIdRef = useRef<string | null>(null);
+  const ringtoneRef = useRef<CallRingtone | null>(null);
   
   const [networkQuality, setNetworkQuality] = useState<'Good' | 'Fair' | 'Poor'>('Good');
+
+  // Ringtone playback controller
+  useEffect(() => {
+    if (!ringtoneRef.current) {
+      ringtoneRef.current = new CallRingtone();
+    }
+
+    if (callState === 'ringing') {
+      ringtoneRef.current.start('incoming');
+    } else if (callState === 'calling') {
+      ringtoneRef.current.start('outgoing');
+    } else {
+      ringtoneRef.current.stop();
+    }
+
+    return () => {
+      ringtoneRef.current?.stop();
+    };
+  }, [callState]);
 
   // Convert LiveKit tracks to MediaStreams cleanly
   const updateLocalStream = useCallback((r: Room) => {
