@@ -23,6 +23,7 @@ import { generateKeyFromRoomId, encryptText, decryptText } from '@/lib/e2ee';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, saveRoomTheme, getRoomShader, saveRoomShader } from '@/lib/db';
 import { ShaderBackground, type ShaderType } from '@/components/ui/ShaderBackground';
+import { GemSmoke } from '@paper-design/shaders-react';
 
 interface Message {
   id: string;
@@ -763,8 +764,31 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         onDrop={handleDrop}
       >
         {isDragging && targetUsername && (
-          <div className="absolute inset-0 z-50 bg-emerald-500/10 border-2 border-dashed border-emerald-500 rounded-2xl flex items-center justify-center pointer-events-none backdrop-blur-sm">
-            <span className="text-emerald-400 font-bold text-xl bg-zinc-900/80 px-6 py-3 rounded-full shadow-2xl">Відпустіть файл для передачі</span>
+          <div className="absolute inset-0 z-50 bg-black/80 border-2 border-dashed border-emerald-500 rounded-2xl flex items-center justify-center pointer-events-none backdrop-blur-md overflow-hidden animate-fade-in">
+            <div className="absolute inset-0 opacity-60 pointer-events-none">
+              <GemSmoke
+                width="100%"
+                height="100%"
+                colors={["#2fb64c", "#cdff61", "#ffffff", "#0aff78"]}
+                colorBack="#000000"
+                colorInner="#000000"
+                shape="diamond"
+                innerDistortion={1}
+                outerDistortion={0.8}
+                outerGlow={0}
+                innerGlow={1}
+                offset={0}
+                angle={0}
+                size={0.8}
+                speed={1}
+                scale={0.6}
+                fit="cover"
+              />
+            </div>
+            <span className="text-emerald-400 font-bold text-xl bg-zinc-900/90 px-6 py-3 rounded-full shadow-2xl z-10 border border-emerald-500/30 flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
+              Відпустіть файл для передачі
+            </span>
           </div>
         )}
         

@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react';
 import { FileTransfer } from '@/hooks/useFileTransfer';
 import { formatBytes } from '@/lib/webrtc';
 import { X, Download, File, Image as ImageIcon, FileText, Film, Music, Box } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GemSmoke } from '@paper-design/shaders-react';
 
 const getFileIcon = (mimeType: string) => {
   if (mimeType.startsWith('image/')) return <ImageIcon className="w-5 h-5 text-blue-400" />;
@@ -19,15 +21,45 @@ export const FileTransferItem = ({
   transfer: FileTransfer, 
   onCancel: (id: string) => void 
 }) => {
+  const [mounted, setMounted] = useState(false);
   const isCompleted = transfer.status === 'completed';
   const isError = transfer.status === 'error' || transfer.status === 'rejected';
+  const isTransferring = transfer.status === 'transferring' || transfer.status === 'connecting';
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 flex items-center justify-between gap-3 group relative overflow-hidden">
+      {/* GemSmoke Shader Background during active transfer */}
+      {mounted && isTransferring && (
+        <div className="absolute inset-0 z-0 opacity-40 pointer-events-none overflow-hidden rounded-xl">
+          <GemSmoke
+            width="100%"
+            height="100%"
+            colors={["#2fb64c", "#cdff61", "#ffffff", "#0aff78"]}
+            colorBack="#000000"
+            colorInner="#000000"
+            shape="diamond"
+            innerDistortion={1}
+            outerDistortion={0.8}
+            outerGlow={0}
+            innerGlow={1}
+            offset={0}
+            angle={0}
+            size={0.8}
+            speed={1}
+            scale={0.6}
+            fit="cover"
+          />
+        </div>
+      )}
+
       {/* Progress background */}
       {transfer.status === 'transferring' && (
         <div 
-          className="absolute left-0 top-0 bottom-0 bg-blue-600/10 transition-all duration-300"
+          className="absolute left-0 top-0 bottom-0 bg-emerald-500/20 transition-all duration-300 z-0"
           style={{ width: `${transfer.progress}%` }}
         />
       )}

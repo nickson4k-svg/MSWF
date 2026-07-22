@@ -1,8 +1,9 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { FileTransfer } from '@/hooks/useFileTransfer';
 import { FileTransferItem } from './FileTransferItem';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GemSmoke } from '@paper-design/shaders-react';
 
 export const FileTransferSidebar = ({
   transfers,
@@ -16,6 +17,12 @@ export const FileTransferSidebar = ({
   isFriendOnline: boolean;
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const hasActiveTransfers = transfers.some(t => t.status === 'transferring' || t.status === 'connecting');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -25,10 +32,37 @@ export const FileTransferSidebar = ({
   };
 
   return (
-    <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 rounded-2xl overflow-hidden flex flex-col h-full">
-      <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
-        <h3 className="text-zinc-100 font-semibold flex items-center gap-2 text-sm">
+    <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 rounded-2xl overflow-hidden flex flex-col h-full relative">
+      <div className="p-4 border-b border-zinc-800 flex justify-between items-center relative overflow-hidden">
+        {/* GemSmoke Shader header background when active transfers occur */}
+        {mounted && hasActiveTransfers && (
+          <div className="absolute inset-0 z-0 opacity-30 pointer-events-none">
+            <GemSmoke
+              width="100%"
+              height="100%"
+              colors={["#2fb64c", "#cdff61", "#ffffff", "#0aff78"]}
+              colorBack="#000000"
+              colorInner="#000000"
+              shape="diamond"
+              innerDistortion={1}
+              outerDistortion={0.8}
+              outerGlow={0}
+              innerGlow={1}
+              offset={0}
+              angle={0}
+              size={0.8}
+              speed={1}
+              scale={0.6}
+              fit="cover"
+            />
+          </div>
+        )}
+
+        <h3 className="text-zinc-100 font-semibold flex items-center gap-2 text-sm z-10">
           Файли
+          {hasActiveTransfers && (
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          )}
         </h3>
         <Button 
           variant="ghost" 
