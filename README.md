@@ -1,5 +1,5 @@
 # Real-time Next.js 14 Messenger
-
+**Live Demo:** [mswf.vercel.app](https://mswf.vercel.app)
 Повноцінний месенджер реального часу, побудований на Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Pusher та Upstash Redis.
 
 ## 🚀 Як запустити локально
