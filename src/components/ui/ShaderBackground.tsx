@@ -210,15 +210,30 @@ export const ShaderBackground = ({
 
     let animationFrameId: number;
     const startTime = performance.now();
+    let isHidden = false;
 
     const render = (time: number) => {
+      if (isHidden) return;
       gl.uniform1f(timeLocation, (time - startTime) * 0.001);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       animationFrameId = requestAnimationFrame(render);
     };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        isHidden = true;
+        cancelAnimationFrame(animationFrameId);
+      } else {
+        isHidden = false;
+        animationFrameId = requestAnimationFrame(render);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     animationFrameId = requestAnimationFrame(render);
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('resize', resize);
       cancelAnimationFrame(animationFrameId);
       gl.deleteProgram(program);

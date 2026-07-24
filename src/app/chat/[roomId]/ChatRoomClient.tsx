@@ -21,8 +21,7 @@ import { useCall } from '@/hooks/useCall';
 import { CallScreen } from '@/components/call/CallScreen';
 import { parseMarkdown } from '@/lib/markdown';
 import { LinkPreview } from '@/components/chat/LinkPreview';
-import { Timer, Clock, Mic, Square } from 'lucide-react';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { Timer, Clock } from 'lucide-react';
 import { generateKeyFromRoomId, encryptText, decryptText } from '@/lib/e2ee';
 import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, saveRoomTheme, getRoomShader } from '@/lib/db';
 import { ShaderBackground, type ShaderType } from '@/components/ui/ShaderBackground';
@@ -30,26 +29,7 @@ import { GemSmoke } from '@paper-design/shaders-react';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { ThemePickerModal } from '@/components/chat/ThemePickerModal';
 import { ChatInput } from '@/components/chat/ChatInput';
-
-interface Message {
-  id: string;
-  text: string;
-  roomId: string;
-  sender: string;
-  timestamp: number;
-  replyTo?: string;       // Feature 15: reply
-  readBy?: string[];      // Feature 3: read receipts
-  ttl?: number;           // Feature 20: auto-destruct TTL in seconds
-  reactions?: Record<string, string>; // Feature 2: reactions (username -> emoji)
-  editedAt?: number;      // Feature 11: Edit
-  isDeleted?: boolean;    // Feature 11: Delete
-}
-
-// Feature 14: Extract first URL from text
-function extractFirstUrl(text: string): string | null {
-  const match = text.match(/https?:\/\/[^\s<]+/);
-  return match ? match[0] : null;
-}
+import { ChatMessageItem, type Message } from '@/components/chat/ChatMessageItem';
 
 // Feature 16: Helper for VAPID key
 function urlBase64ToUint8Array(base64String: string) {
@@ -86,16 +66,7 @@ const getThemeClasses = (theme: string) => {
   }
 };
 
-const getBubbleClasses = (theme: string, isMe: boolean) => {
-  if (!isMe) return 'bg-zinc-900 border border-zinc-800/80 text-zinc-100';
-  switch (theme) {
-    case 'ocean': return 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white border border-blue-500/50';
-    case 'cyberpunk': return 'bg-gradient-to-br from-pink-600 to-purple-600 text-white border border-pink-500/50';
-    case 'forest': return 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white border border-emerald-500/50';
-    case 'rose': return 'bg-gradient-to-br from-rose-600 to-red-700 text-white border border-rose-500/50';
-    default: return 'bg-gradient-to-br from-blue-600 to-blue-700 text-white';
-  }
-};
+
 
 function getDateLabel(date: Date): string {
   if (isToday(date)) return 'Сьогодні';
@@ -235,18 +206,55 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     return format(date, 'dd.MM.yyyy');
   };
 
-  const getReplyMessage = (replyId: string) => {
-    return messages.find(m => m.id === replyId);
-  };
+  const getReplyMessage = useCallback((replyId: string) => {
+    return messages.find(m => m.id === replyId) || null;
+  }, [messages]);
 
-  const scrollToMessage = (msgId: string) => {
+  const scrollToMessage = useCallback((msgId: string) => {
     const el = document.getElementById(`msg-${msgId}`);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       el.classList.add('bg-zinc-800/80');
       setTimeout(() => el.classList.remove('bg-zinc-800/80'), 2000);
     }
-  };
+  }, []);
+
+  const handleSelectMessage = useCallback((msgId: string) => {
+    setSelectedMessages(prev => {
+      const next = new Set(prev);
+      if (next.has(msgId)) next.delete(msgId);
+      else next.add(msgId);
+      return next;
+    });
+  }, []);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, msg: Message) => {
+    e.preventDefault();
+    setContextMenu({ msg, x: e.clientX, y: e.clientY });
+  }, []);
+
+  const handleReaction = useCallback((msgId: string, emoji: string) => {
+    const targetMsg = messages.find(m => m.id === msgId);
+    const currentEmoji = targetMsg?.reactions?.[username];
+    fetch('/api/messages/react', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ msgId, roomId, emoji: currentEmoji === emoji ? '' : emoji })
+    });
+  }, [messages, username, roomId]);
+
+  const handleReply = useCallback((msg: Message) => {
+    setReplyTo(msg);
+    inputRef.current?.focus();
+  }, []);
+
+  const handleBack = useCallback(() => {
+    router.push('/');
+  }, [router]);
+
+  const handleToggleThemePicker = useCallback(() => {
+    setShowThemePicker(prev => !prev);
+  }, []);
 
   const startVoiceRecording = async () => {
     try {
@@ -303,6 +311,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const targetUsername = roomId.startsWith('private-') 
     ? roomId.replace('private-', '').split('-').find(u => u !== username) 
     : undefined;
+
+  const handleSendFile = useCallback((f: File) => {
+    if (targetUsername) {
+      initiateTransfer(f, targetUsername, roomId);
+    }
+  }, [targetUsername, roomId, initiateTransfer]);
 
   const {
     callState,
@@ -806,7 +820,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             <FileTransferSidebar 
               transfers={transfers}
               onCancelTransfer={cancelTransfer}
-              onSendFile={(f) => initiateTransfer(f, targetUsername, roomId)}
+              onSendFile={handleSendFile}
               isFriendOnline={true}
             />
           </div>
@@ -825,8 +839,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           targetUsername={targetUsername}
           targetPresence={targetPresence}
           typingText={typingText}
-          onBack={() => router.push('/')}
-          onToggleThemePicker={() => setShowThemePicker(!showThemePicker)}
+          onBack={handleBack}
+          onToggleThemePicker={handleToggleThemePicker}
           onStartCall={startCall}
         />
         {showThemePicker && (
@@ -861,185 +875,32 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           const prevMsg = messages[idx - 1];
           const showSender = !prevMsg || prevMsg.sender !== msg.sender || (msg.timestamp - prevMsg.timestamp > 300000);
           
-          // Feature 4: Date separators
           const msgDate = new Date(msg.timestamp);
           const prevDate = prevMsg ? new Date(prevMsg.timestamp) : null;
           const showDateSeparator = !prevDate || !isSameDay(msgDate, prevDate);
 
-          let isFileMeta = false;
-          let fileMetaData = null;
-          try {
-            if (msg.text.startsWith('{"type":"file-transfer-meta"')) {
-              isFileMeta = true;
-              fileMetaData = JSON.parse(msg.text);
-            }
-          } catch(e) {}
-
-          // Feature 15: Find replied message
           const repliedMsg = msg.replyTo ? getReplyMessage(msg.replyTo) : null;
-
-          // Feature 3: Read receipt status
-          const isRead = isMe && msg.readBy && msg.readBy.length > 0;
+          const isSelected = selectedMessages.has(msg.id);
 
           return (
-            <div key={msg.id}>
-              {/* Feature 4: Date separator */}
-              {showDateSeparator && (
-                <div className="flex items-center gap-4 py-4">
-                  <div className="flex-1 h-px bg-zinc-800/60" />
-                  <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">{getDateLabel(msgDate)}</span>
-                  <div className="flex-1 h-px bg-zinc-800/60" />
-                </div>
-              )}
-              <div 
-                id={`msg-${msg.id}`} 
-                className={`flex flex-col w-full transition-all duration-300 rounded-xl animate-slide-up ${isMe ? 'items-end' : 'items-start'} ${showSender ? 'mt-4' : 'mt-0.5'}`}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setContextMenu({ msg, x: e.clientX, y: e.clientY });
-                }}
-              >
-                {!isMe && showSender && (
-                  <span className="text-[11px] font-medium text-zinc-500 mb-1.5 ml-2">{msg.sender}</span>
-                )}
-                
-                {/* Feature 15: Reply quote */}
-                {repliedMsg && (
-                  <div 
-                    className={`flex items-center gap-2 mb-1 px-3 py-1.5 rounded-lg cursor-pointer bg-zinc-800/50 border-l-2 border-blue-500 max-w-[70%] hover:bg-zinc-800 transition-colors ${isMe ? 'mr-2' : 'ml-2'}`}
-                    onClick={() => scrollToMessage(repliedMsg.id)}
-                  >
-                    <Reply className="w-3 h-3 text-blue-400 flex-shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-[10px] text-blue-400 font-semibold">{repliedMsg.sender}</span>
-                      <p className="text-[11px] text-zinc-400 truncate">{repliedMsg.text}</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="group relative flex items-end gap-2 max-w-[85%] sm:max-w-[70%]">
-                  {selectionMode && (
-                    <div 
-                      className={`w-5 h-5 rounded border flex-shrink-0 cursor-pointer flex items-center justify-center mr-2 ${selectedMessages.has(msg.id) ? 'bg-blue-500 border-blue-500' : 'border-zinc-600 bg-zinc-800'}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedMessages(prev => {
-                          const next = new Set(prev);
-                          if (next.has(msg.id)) next.delete(msg.id);
-                          else next.add(msg.id);
-                          return next;
-                        });
-                      }}
-                    >
-                      {selectedMessages.has(msg.id) && <Check className="w-3 h-3 text-white" />}
-                    </div>
-                  )}
-                  
-                  {/* Reaction Button on Hover */}
-                  <div className={`absolute top-0 -mt-10 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-800 border border-zinc-700 p-1.5 rounded-full shadow-xl flex gap-1 z-20 ${isMe ? 'right-0' : 'left-0'}`}>
-                    {['👍', '❤️', '😂', '😮', '😡'].map(emoji => (
-                      <button 
-                        key={emoji}
-                        onClick={() => {
-                          fetch('/api/messages/react', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ msgId: msg.id, roomId, emoji: msg.reactions?.[username] === emoji ? '' : emoji })
-                          });
-                        }}
-                        className={`hover:bg-zinc-700 w-7 h-7 rounded-full flex items-center justify-center text-sm transition-transform hover:scale-125 ${msg.reactions?.[username] === emoji ? 'bg-zinc-700 bg-opacity-50' : ''}`}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                  {isFileMeta && fileMetaData ? (
-                    <FileMessage 
-                      fileName={fileMetaData.fileName} 
-                      fileSize={fileMetaData.fileSize}
-                      mimeType={fileMetaData.mimeType}
-                      isMe={isMe}
-                    />
-                  ) : msg.isDeleted ? (
-                    <div className={`px-5 py-3 shadow-lg bg-zinc-900 border border-zinc-800/80 text-zinc-500 italic rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
-                      Повідомлення видалено
-                    </div>
-                  ) : (
-                    <div 
-                      className={`
-                        px-5 py-3 shadow-lg 
-                        ${isMe ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-bl-sm'}
-                        ${getBubbleClasses(theme, isMe)}
-                      `}
-                    >
-                      {/* Feature 1: Markdown rendering or Feature 11: Voice message */}
-                      {msg.text.startsWith('data:audio/') ? (
-                        <audio controls src={msg.text} className="max-w-[200px] sm:max-w-[250px] h-10" />
-                      ) : (
-                        <p className="text-[15px] leading-relaxed break-words" dangerouslySetInnerHTML={{ __html: parseMarkdown(msg.text) }} />
-                      )}
-                      
-                      {msg.editedAt && (
-                        <span className="text-[10px] text-zinc-400 opacity-70 ml-2">(змінено)</span>
-                      )}
-
-                      {/* Feature 20: Auto-destruct indicator */}
-                      {msg.ttl && (
-                        <div className="flex items-center gap-1 mt-1 text-amber-400/80">
-                          <Timer className="w-3 h-3" />
-                          <span className="text-[10px] font-medium">Самознищення: {msg.ttl < 60 ? `${msg.ttl}с` : msg.ttl < 3600 ? `${Math.floor(msg.ttl / 60)}хв` : `${Math.floor(msg.ttl / 3600)}д`}</span>
-                        </div>
-                      )}
-
-                      {/* Display Reactions */}
-                      {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                        <div className={`absolute -bottom-3 flex items-center gap-1 ${isMe ? 'right-2' : 'left-2'}`}>
-                          {Object.entries(
-                            Object.values(msg.reactions).reduce((acc: Record<string, number>, emoji: string) => {
-                              acc[emoji] = (acc[emoji] || 0) + 1;
-                              return acc;
-                            }, {} as Record<string, number>)
-                          ).map(([emoji, count]) => (
-                            <span key={emoji} className="bg-zinc-800 border border-zinc-700 text-[10px] px-1.5 py-0.5 rounded-full shadow-sm flex items-center gap-1">
-                              {emoji} <span className="text-zinc-400">{count > 1 ? count : ''}</span>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Feature 15: Reply button on hover */}
-                  <button 
-                    onClick={() => { setReplyTo(msg); inputRef.current?.focus(); }}
-                    className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 absolute ${isMe ? '-left-8' : '-right-8'} bottom-1`}
-                    title="Відповісти"
-                  >
-                    <Reply className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Feature 14: Link preview */}
-                {!isFileMeta && extractFirstUrl(msg.text) && (
-                  <div className={`${isMe ? 'mr-2' : 'ml-2'}`}>
-                    <LinkPreview url={extractFirstUrl(msg.text)!} />
-                  </div>
-                )}
-
-                {/* Timestamp + Read receipts */}
-                <div className={`flex items-center gap-1 mt-1 ${isMe ? 'mr-2' : 'ml-2'}`}>
-                  <span className="text-[10px] font-medium text-zinc-600">
-                    {format(new Date(msg.timestamp), 'HH:mm')}
-                  </span>
-                  {/* Feature 3: Read receipt checkmarks */}
-                  {isMe && (
-                    isRead 
-                      ? <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
-                      : <Check className="w-3.5 h-3.5 text-zinc-600" />
-                  )}
-                </div>
-              </div>
-            </div>
+            <ChatMessageItem
+              key={msg.id}
+              msg={msg}
+              isMe={isMe}
+              showSender={showSender}
+              showDateSeparator={showDateSeparator}
+              dateLabel={getDateLabel(msgDate)}
+              repliedMsg={repliedMsg}
+              selectionMode={selectionMode}
+              isSelected={isSelected}
+              theme={theme}
+              username={username}
+              onSelect={handleSelectMessage}
+              onContextMenu={handleContextMenu}
+              onReaction={handleReaction}
+              onReply={handleReply}
+              onScrollToReply={scrollToMessage}
+            />
           );
         })}
         <div ref={scrollRef} className="h-4" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Send, Reply, X, Timer, Mic, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +28,7 @@ const TTL_OPTIONS = [
   { label: '1 день', value: 86400 },
 ];
 
-export function ChatInput({
+export const ChatInput = memo(function ChatInput({
   inputText,
   replyTo,
   selectedTtl,
@@ -137,4 +137,4 @@ export function ChatInput({
       </form>
     </footer>
   );
-}
+});

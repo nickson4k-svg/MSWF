@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { ArrowLeft, Palette, Video as VideoIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
@@ -18,7 +19,7 @@ interface ChatHeaderProps {
   onStartCall?: (target: string) => void;
 }
 
-export function ChatHeader({
+export const ChatHeader = memo(function ChatHeader({
   roomId,
   username,
   targetUsername,
@@ -97,4 +98,4 @@ export function ChatHeader({
       </div>
     </header>
   );
-}
+});

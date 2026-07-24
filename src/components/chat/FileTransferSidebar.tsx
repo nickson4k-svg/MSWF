@@ -1,4 +1,4 @@
-import { useRef, useSyncExternalStore } from 'react';
+import { useRef, useSyncExternalStore, memo } from 'react';
 import { FileTransfer } from '@/hooks/useFileTransfer';
 import { FileTransferItem } from './FileTransferItem';
 import { Plus } from 'lucide-react';
@@ -9,7 +9,7 @@ const subscribe = () => () => {};
 const getSnapshot = () => true;
 const getServerSnapshot = () => false;
 
-export const FileTransferSidebar = ({
+export const FileTransferSidebar = memo(function FileTransferSidebar({
   transfers,
   onSendFile,
   onCancelTransfer,
@@ -19,7 +19,7 @@ export const FileTransferSidebar = ({
   onSendFile: (file: File) => void;
   onCancelTransfer: (id: string) => void;
   isFriendOnline: boolean;
-}) => {
+}) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const hasActiveTransfers = transfers.some(t => t.status === 'transferring' || t.status === 'connecting');
@@ -105,4 +105,4 @@ export const FileTransferSidebar = ({
       </div>
     </div>
   );
-};
+});
