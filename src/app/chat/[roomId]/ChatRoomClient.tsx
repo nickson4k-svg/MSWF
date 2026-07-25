@@ -71,11 +71,133 @@ const getThemeClasses = (theme: string) => {
 
 
 
-function getDateLabel(date: Date): string {
-  if (isToday(date)) return 'Сьогодні';
-  if (isYesterday(date)) return 'Вчора';
-  return format(date, 'd MMMM yyyy', { locale: uk });
-}
+const openMiniPopupWindow = (sender: string, text: string) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const width = 360;
+    const height = 110;
+    const left = window.screen.width - width - 20;
+    const top = 40;
+
+    const popup = window.open(
+      '',
+      '_blank',
+      `width=${width},height=${height},left=${left},top=${top},resizable=no,scrollbars=no,status=no,location=no,toolbar=no,menubar=no`
+    );
+
+    if (!popup) return;
+
+    popup.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Нове повідомлення</title>
+          <style>
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              padding: 10px;
+              background: #09090b;
+              color: #f4f4f5;
+              font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              user-select: none;
+              overflow: hidden;
+            }
+            .card {
+              background: #18181b;
+              border: 1px solid #27272a;
+              border-radius: 16px;
+              padding: 10px 14px;
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+              cursor: pointer;
+            }
+            .avatar {
+              width: 38px;
+              height: 38px;
+              border-radius: 50%;
+              background: #10b981;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: bold;
+              font-size: 15px;
+              color: white;
+              flex-shrink: 0;
+            }
+            .content {
+              flex: 1;
+              min-width: 0;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .name {
+              font-size: 13px;
+              font-weight: 600;
+              color: #f4f4f5;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .time {
+              font-size: 10px;
+              color: #71717a;
+            }
+            .text {
+              font-size: 12px;
+              color: #a1a1aa;
+              margin-top: 2px;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .close-btn {
+              background: none;
+              border: none;
+              color: #71717a;
+              font-size: 18px;
+              cursor: pointer;
+              padding: 2px 6px;
+              line-height: 1;
+            }
+            .close-btn:hover { color: #f4f4f5; }
+          </style>
+        </head>
+        <body>
+          <div class="card" id="card">
+            <div class="avatar">${(sender[0] || 'U').toUpperCase()}</div>
+            <div class="content">
+              <div class="header">
+                <span class="name">${sender}</span>
+                <span class="time">Зараз</span>
+              </div>
+              <div class="text">${text}</div>
+            </div>
+            <button class="close-btn" id="close">&times;</button>
+          </div>
+          <script>
+            document.getElementById('card').onclick = (e) => {
+              if (e.target.id === 'close') return;
+              if (window.opener) { window.opener.focus(); }
+              window.close();
+            };
+            document.getElementById('close').onclick = (e) => {
+              e.stopPropagation();
+              window.close();
+            };
+            setTimeout(() => { window.close(); }, 5000);
+          </script>
+        </body>
+      </html>
+    `);
+  } catch (e) {}
+};
 
 export default function ChatRoomClient({ roomId, initialHistory }: { roomId: string, initialHistory: Message[] }) {
   const router = useRouter();
@@ -722,7 +844,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
               } catch (e) {}
             }
 
-            // 2. In-App Telegram Toast popup
+            // 2. Separate floating mini window on OS desktop if app is minimized
+            if (document.hidden) {
+              openMiniPopupWindow(dispMessage.sender, textPreview);
+            }
+
+            // 3. In-App Telegram Toast popup
             setToastNotif({
               sender: dispMessage.sender,
               text: textPreview,
