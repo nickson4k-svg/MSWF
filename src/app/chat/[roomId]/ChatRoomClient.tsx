@@ -104,6 +104,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [deleteConfirmMsg, setDeleteConfirmMsg] = useState<Message | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [prevRoomId, setPrevRoomId] = useState(normalizedRoomId);
+  if (prevRoomId !== normalizedRoomId) {
+    setPrevRoomId(normalizedRoomId);
+    setShowScrollBottom(false);
+  }
+
   const userScrolledUpRef = useRef(false);
   const prevMessagesLengthRef = useRef(messages.length);
   const hasScrolledToBottomOnLoadRef = useRef(false);
@@ -111,7 +117,6 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   useEffect(() => {
     hasScrolledToBottomOnLoadRef.current = false;
     userScrolledUpRef.current = false;
-    setShowScrollBottom(false);
   }, [normalizedRoomId]);
 
   const usernameRef = useRef(username);
