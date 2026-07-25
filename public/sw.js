@@ -25,7 +25,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Feature 16: Web Push Notifications
+// Feature 16: Web Push Notifications & App Badge
 self.addEventListener('push', function(event) {
   if (event.data) {
     const data = event.data.json();
@@ -38,14 +38,23 @@ self.addEventListener('push', function(event) {
       }
     };
 
-    event.waitUntil(
+    const promises = [
       self.registration.showNotification(data.title, options)
-    );
+    ];
+
+    if ('setAppBadge' in navigator) {
+      promises.push(navigator.setAppBadge(data.unreadCount || 1));
+    }
+
+    event.waitUntil(Promise.all(promises));
   }
 });
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
+  if ('clearAppBadge' in navigator) {
+    navigator.clearAppBadge().catch(() => {});
+  }
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
       if (clientList.length > 0) {

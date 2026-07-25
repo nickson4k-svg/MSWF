@@ -31,6 +31,7 @@ import { ThemePickerModal } from '@/components/chat/ThemePickerModal';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatMessageItem, type Message } from '@/components/chat/ChatMessageItem';
 import { playIncomingMessageSound, playOutgoingMessageSound } from '@/lib/sound';
+import { incrementUnreadBadge, clearUnreadBadge } from '@/lib/badge';
 
 // Feature 16: Helper for VAPID key
 function urlBase64ToUint8Array(base64String: string) {
@@ -550,6 +551,13 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   }, [roomId]);
 
   useEffect(() => {
+    clearUnreadBadge();
+    const handleFocus = () => clearUnreadBadge();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  useEffect(() => {
     const client = getPusherClient();
     if (!client) return;
 
@@ -576,6 +584,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         if (prev.find(m => m.id === dispMessage.id)) return prev;
         if (dispMessage.sender !== usernameRef.current) {
           playIncomingMessageSound();
+          if (document.hidden) {
+            incrementUnreadBadge();
+          }
         }
         return [...prev, dispMessage];
       });

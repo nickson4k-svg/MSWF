@@ -8,6 +8,7 @@ import { UserMinus, Plus } from 'lucide-react';
 import { AddFriendModal } from './AddFriendModal';
 import Pusher from 'pusher-js';
 import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
+import { setUnreadBadgeCount } from '@/lib/badge';
 
 interface FriendListItemProps {
   friend: FriendWithStatus;
@@ -110,6 +111,11 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
       pusher.unsubscribe(`user-${currentUser}`);
     };
   }, [currentUser]);
+
+  useEffect(() => {
+    const totalUnread = friends.reduce((sum, f) => sum + (f.unreadCount || 0), 0);
+    setUnreadBadgeCount(totalUnread);
+  }, [friends]);
 
   const removeFriend = useCallback(async (username: string) => {
     if (!confirm('Ви впевнені, що хочете видалити цього друга?')) return;
