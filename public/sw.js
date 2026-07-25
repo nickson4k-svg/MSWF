@@ -55,6 +55,8 @@ self.addEventListener('notificationclick', function(event) {
   if ('clearAppBadge' in navigator) {
     navigator.clearAppBadge().catch(() => {});
   }
+  const urlToOpen = event.notification.data?.url || '/';
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
       if (clientList.length > 0) {
@@ -64,9 +66,14 @@ self.addEventListener('notificationclick', function(event) {
             client = clientList[i];
           }
         }
+        if ('navigate' in client) {
+          client.navigate(urlToOpen);
+        }
         return client.focus();
       }
-      return clients.openWindow(event.notification.data.url);
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
     })
   );
 });
