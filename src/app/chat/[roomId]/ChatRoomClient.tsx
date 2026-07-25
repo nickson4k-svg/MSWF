@@ -104,6 +104,20 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [deleteConfirmMsg, setDeleteConfirmMsg] = useState<Message | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [toastNotif, setToastNotif] = useState<{ sender: string; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!toastNotif) return;
+    const timer = setTimeout(() => setToastNotif(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toastNotif]);
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
   const [prevRoomId, setPrevRoomId] = useState(normalizedRoomId);
   if (prevRoomId !== normalizedRoomId) {
     setPrevRoomId(normalizedRoomId);
@@ -676,6 +690,33 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         if (prev.find(m => m.id === dispMessage.id)) return prev;
         if (dispMessage.sender !== usernameRef.current) {
           playIncomingMessageSound();
+
+          const textPreview = dispMessage.text.startsWith('data:audio/') 
+            ? '🎤 Голосове повідомлення' 
+            : dispMessage.text.startsWith('{"type":"file-transfer-meta"') 
+              ? '📁 Передано файл' 
+              : dispMessage.text;
+
+          // 1. Native Desktop Notification for backgrounded/minimized app
+          if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+              const notif = new Notification(dispMessage.sender, {
+                body: textPreview,
+                tag: `msg-${dispMessage.id}`,
+              });
+              notif.onclick = () => {
+                window.focus();
+                notif.close();
+              };
+            } catch (e) {}
+          }
+
+          // 2. In-App Telegram Toast popup
+          setToastNotif({
+            sender: dispMessage.sender,
+            text: textPreview,
+          });
+
           if (document.hidden) {
             incrementUnreadBadge();
           }
@@ -1243,6 +1284,42 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             </button>
           </div>
         </div>
+      </div>
+    )}
+
+    {/* Telegram-style Popup Toast Notification */}
+    {toastNotif && (
+      <div 
+        className="fixed top-5 right-5 z-50 max-w-xs sm:max-w-sm w-full bg-zinc-900/95 border border-zinc-700/80 p-3.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-3 animate-in slide-in-from-top-5 duration-300 cursor-pointer hover:border-zinc-500 transition-all group"
+        onClick={() => {
+          window.focus();
+          setToastNotif(null);
+          scrollToBottom();
+        }}
+      >
+        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0">
+          {toastNotif.sender[0]?.toUpperCase()}
+        </div>
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-semibold text-zinc-100 truncate">{toastNotif.sender}</h4>
+            <span className="text-[10px] text-zinc-500 font-medium">Зараз</span>
+          </div>
+          <p className="text-xs text-zinc-300 truncate mt-0.5 font-normal">
+            {toastNotif.text}
+          </p>
+        </div>
+
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            setToastNotif(null);
+          }}
+          className="text-zinc-500 hover:text-zinc-300 p-1 rounded-full hover:bg-zinc-800 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
     )}
     </>
