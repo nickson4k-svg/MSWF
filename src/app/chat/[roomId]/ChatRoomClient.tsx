@@ -14,7 +14,7 @@ import { format, isToday, isYesterday, isSameDay, formatDistanceToNow } from 'da
 import { uk } from 'date-fns/locale';
 import { FriendList } from '@/components/friends/FriendList';
 import { useFileTransfer } from '@/hooks/useFileTransfer';
-import { FileTransferSidebar } from '@/components/chat/FileTransferSidebar';
+import { FileTransferSidebar, type RoomFileItem } from '@/components/chat/FileTransferSidebar';
 import { FileTransferModal } from '@/components/chat/FileTransferModal';
 import { FileMessage } from '@/components/chat/FileMessage';
 import { useCall } from '@/hooks/useCall';
@@ -348,6 +348,53 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       initiateTransfer(f, targetUsername, normalizedRoomId);
     }
   }, [targetUsername, normalizedRoomId, initiateTransfer]);
+
+  const roomFiles = useMemo<RoomFileItem[]>(() => {
+    const files: RoomFileItem[] = [];
+    messages.forEach(msg => {
+      if (msg.isDeleted) return;
+
+      if (msg.text.startsWith('{"type":"file-transfer-meta"')) {
+        try {
+          const meta = JSON.parse(msg.text);
+          if (meta.fileName) {
+            files.push({
+              id: msg.id,
+              fileName: meta.fileName,
+              fileSize: meta.fileSize || 0,
+              mimeType: meta.mimeType || 'application/octet-stream',
+              sender: msg.sender === username ? 'Ви' : msg.sender,
+              timestamp: msg.timestamp,
+            });
+          }
+        } catch {}
+      } else if (msg.text.startsWith('data:audio/')) {
+        files.push({
+          id: msg.id,
+          fileName: 'Голосове повідомлення',
+          fileSize: Math.round((msg.text.length * 3) / 4),
+          mimeType: 'audio/webm',
+          sender: msg.sender === username ? 'Ви' : msg.sender,
+          timestamp: msg.timestamp,
+          downloadData: msg.text,
+        });
+      } else if (msg.text.startsWith('data:image/') || msg.text.startsWith('data:video/') || msg.text.startsWith('data:application/')) {
+        const mime = msg.text.substring(5, msg.text.indexOf(';'));
+        const ext = mime.split('/')[1] || 'bin';
+        files.push({
+          id: msg.id,
+          fileName: `Файл_${format(new Date(msg.timestamp), 'HHmm')}.${ext}`,
+          fileSize: Math.round((msg.text.length * 3) / 4),
+          mimeType: mime,
+          sender: msg.sender === username ? 'Ви' : msg.sender,
+          timestamp: msg.timestamp,
+          downloadData: msg.text,
+        });
+      }
+    });
+
+    return files.reverse();
+  }, [messages, username]);
 
   const {
     callState,
@@ -889,9 +936,11 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           <div className="hidden lg:flex flex-col w-72 lg:w-80 h-full flex-shrink-0 animate-slide-up">
             <FileTransferSidebar 
               transfers={transfers}
+              roomFiles={roomFiles}
               onCancelTransfer={cancelTransfer}
               onSendFile={handleSendFile}
               isFriendOnline={true}
+              onScrollToMessage={scrollToMessage}
             />
           </div>
         )}
