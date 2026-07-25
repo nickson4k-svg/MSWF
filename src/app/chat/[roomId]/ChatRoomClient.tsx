@@ -481,10 +481,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       if (!res.ok) return;
       const history: Message[] = await res.json();
       
+      const keyToUse = currentKey || (roomId.startsWith('private-') ? await generateKeyFromRoomId(roomId) : null);
+
       const decryptedHistory = await Promise.all(history.map(async m => {
-        if (m.text.startsWith('E2E:') && currentKey) {
+        if (m.text.startsWith('E2E:') && keyToUse) {
           try {
-            const dec = await decryptText(m.text.substring(4), currentKey);
+            const dec = await decryptText(m.text.substring(4), keyToUse);
             return { ...m, text: dec };
           } catch { return m; }
         }
