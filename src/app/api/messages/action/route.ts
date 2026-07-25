@@ -33,18 +33,26 @@ export async function POST(req: Request) {
 
     const msg = JSON.parse(msgsStr[idx]);
 
-    // Only sender can edit/delete
-    if (msg.sender !== sender) {
-      return new NextResponse('Forbidden', { status: 403 });
-    }
-
+    // For editing: only original sender can edit
     if (action === 'edit') {
+      if (msg.sender !== sender) {
+        return new NextResponse('Forbidden', { status: 403 });
+      }
       if (!text) return new NextResponse('Missing text', { status: 400 });
       msg.text = text;
       msg.editedAt = Date.now();
     } else if (action === 'delete') {
+      // For deleting: any participant in private room or the sender can delete
+      const isParticipant = roomId.startsWith('private-')
+        ? roomId.includes(sender)
+        : msg.sender === sender;
+
+      if (!isParticipant) {
+        return new NextResponse('Forbidden', { status: 403 });
+      }
+
       msg.isDeleted = true;
-      msg.text = ''; // Clear text content
+      msg.text = 'Повідомлення видалено';
     } else {
       return new NextResponse('Invalid action', { status: 400 });
     }

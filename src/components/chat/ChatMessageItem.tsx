@@ -230,7 +230,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             >
               <Reply className="w-4 h-4" />
             </button>
-            {isMe && !msg.isDeleted && onDelete && (
+            {!msg.isDeleted && onDelete && (
               <button 
                 onClick={() => onDelete(msg)}
                 className="p-1.5 rounded-full hover:bg-red-500/20 text-zinc-500 hover:text-red-400 transition-colors"

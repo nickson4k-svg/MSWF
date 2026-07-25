@@ -1296,15 +1296,17 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             Вибрати кілька
           </button>
           
-          {contextMenu.msg.sender === username && !contextMenu.msg.isDeleted && (
+          {!contextMenu.msg.isDeleted && (
             <>
               <div className="h-px bg-zinc-800 w-full" />
-              <button 
-                className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
-                onClick={() => { setEditingMsg(contextMenu.msg); setInputText(contextMenu.msg.text); setContextMenu(null); inputRef.current?.focus(); }}
-              >
-                Редагувати
-              </button>
+              {contextMenu.msg.sender === username && (
+                <button 
+                  className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
+                  onClick={() => { setEditingMsg(contextMenu.msg); setInputText(contextMenu.msg.text); setContextMenu(null); inputRef.current?.focus(); }}
+                >
+                  Редагувати
+                </button>
+              )}
               <button 
                 className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
                 onClick={() => {
