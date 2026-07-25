@@ -2,17 +2,19 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { redis } from '@/lib/redis';
+import { normalizeRoomId } from '@/lib/friends';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const roomId = searchParams.get('roomId');
+    const rawRoomId = searchParams.get('roomId');
 
-    if (!roomId) {
+    if (!rawRoomId) {
       return new NextResponse('Missing roomId', { status: 400 });
     }
+    const roomId = normalizeRoomId(rawRoomId);
 
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value;

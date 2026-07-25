@@ -32,6 +32,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatMessageItem, type Message } from '@/components/chat/ChatMessageItem';
 import { playIncomingMessageSound, playOutgoingMessageSound } from '@/lib/sound';
 import { incrementUnreadBadge, clearUnreadBadge } from '@/lib/badge';
+import { normalizeRoomId } from '@/lib/friends';
 
 // Feature 16: Helper for VAPID key
 function urlBase64ToUint8Array(base64String: string) {
@@ -78,6 +79,7 @@ function getDateLabel(date: Date): string {
 
 export default function ChatRoomClient({ roomId, initialHistory }: { roomId: string, initialHistory: Message[] }) {
   const router = useRouter();
+  const normalizedRoomId = useMemo(() => normalizeRoomId(roomId), [roomId]);
   const [messages, setMessages] = useState<Message[]>(initialHistory);
   const [inputText, setInputText] = useState('');
   const [username, setUsername] = useState('');
@@ -158,7 +160,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
     const messagePayload = {
       text: payloadText,
-      roomId,
+      roomId: normalizedRoomId,
       sender: username,
       replyTo: replyTo?.id || undefined,
       ttl: selectedTtl || undefined,
@@ -316,15 +318,15 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     }));
   });
 
-  const targetUsername = roomId.startsWith('private-') 
-    ? roomId.replace('private-', '').split('-').find(u => u !== username) 
+  const targetUsername = normalizedRoomId.startsWith('private-') 
+    ? normalizedRoomId.replace('private-', '').split('-').find(u => u !== username) 
     : undefined;
 
   const handleSendFile = useCallback((f: File) => {
     if (targetUsername) {
-      initiateTransfer(f, targetUsername, roomId);
+      initiateTransfer(f, targetUsername, normalizedRoomId);
     }
-  }, [targetUsername, roomId, initiateTransfer]);
+  }, [targetUsername, normalizedRoomId, initiateTransfer]);
 
   const {
     callState,
@@ -469,19 +471,19 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
   useEffect(() => {
     // Initialize E2EE key if private room
-    if (roomId.startsWith('private-')) {
-      generateKeyFromRoomId(roomId).then(setE2eKey).catch(console.error);
+    if (normalizedRoomId.startsWith('private-')) {
+      generateKeyFromRoomId(normalizedRoomId).then(setE2eKey).catch(console.error);
     }
-  }, [roomId]);
+  }, [normalizedRoomId]);
 
   // Feature 12: Load cached messages from IndexedDB and sync with Redis on mount
   const syncHistory = useCallback(async (currentKey: CryptoKey | null) => {
     try {
-      const res = await fetch(`/api/messages/history?roomId=${roomId}`);
+      const res = await fetch(`/api/messages/history?roomId=${normalizedRoomId}`);
       if (!res.ok) return;
       const history: Message[] = await res.json();
       
-      const keyToUse = currentKey || (roomId.startsWith('private-') ? await generateKeyFromRoomId(roomId) : null);
+      const keyToUse = currentKey || (normalizedRoomId.startsWith('private-') ? await generateKeyFromRoomId(normalizedRoomId) : null);
 
       const decryptedHistory = await Promise.all(history.map(async m => {
         if (m.text.startsWith('E2E:') && keyToUse) {
@@ -515,15 +517,15 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     } catch (e) {
       console.error('Failed to sync history', e);
     }
-  }, [roomId]);
+  }, [normalizedRoomId]);
 
   useEffect(() => {
     let mounted = true;
-    getCachedMessages(roomId).then(async (cached) => {
+    getCachedMessages(normalizedRoomId).then(async (cached) => {
       if (!mounted) return;
-      const key = roomId.startsWith('private-') ? await generateKeyFromRoomId(roomId) : null;
-      getRoomTheme(roomId).then(t => mounted && setTheme(t));
-      getRoomShader(roomId).then(s => mounted && setShaderType(s as ShaderType));
+      const key = normalizedRoomId.startsWith('private-') ? await generateKeyFromRoomId(normalizedRoomId) : null;
+      getRoomTheme(normalizedRoomId).then(t => mounted && setTheme(t));
+      getRoomShader(normalizedRoomId).then(s => mounted && setShaderType(s as ShaderType));
       if (cached.length > 0) {
         // Decrypt cached messages if needed
         const decryptedCache = await Promise.all(cached.map(async m => {
@@ -550,7 +552,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     });
     cleanExpiredMessages();
     return () => { mounted = false; };
-  }, [roomId]);
+  }, [normalizedRoomId, syncHistory]);
 
   useEffect(() => {
     clearUnreadBadge();
@@ -563,7 +565,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     const client = getPusherClient();
     if (!client) return;
 
-    const channelName = `room-${sanitizeChannelName(roomId)}`;
+    const channelName = `room-${sanitizeChannelName(normalizedRoomId)}`;
     const channel = client.subscribe(channelName);
 
     channel.bind('incoming-message', async (newMessage: Message & { isLarge?: boolean }) => {
@@ -659,13 +661,13 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     // Feature: Theme syncing
     channel.bind('room-theme-changed', (data: { username: string; theme: string }) => {
       setTheme(data.theme);
-      saveRoomTheme(roomId, data.theme);
+      saveRoomTheme(normalizedRoomId, data.theme);
     });
 
     return () => {
       client.unsubscribe(channelName);
     };
-  }, [roomId, username]);
+  }, [normalizedRoomId, username]);
 
   // Feature 3: Mark messages as read when chat is visible
   useEffect(() => {
@@ -690,12 +692,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       fetch('/api/messages/read', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageIds: ids, roomId }),
+        body: JSON.stringify({ messageIds: ids, roomId: normalizedRoomId }),
       }).catch(() => {});
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [messages, username, roomId]);
+  }, [messages, username, normalizedRoomId]);
 
   // Feature 20: Auto-destruct messages with TTL
   useEffect(() => {

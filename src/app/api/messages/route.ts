@@ -6,6 +6,7 @@ import { sanitizeChannelName } from '@/lib/pusher';
 import { redis } from '@/lib/redis';
 import webpush from 'web-push';
 import { sendMessageSchema } from '@/lib/validation';
+import { normalizeRoomId } from '@/lib/friends';
 
 export async function POST(req: Request) {
   try {
@@ -30,7 +31,8 @@ export async function POST(req: Request) {
     if (!parseResult.success) {
       return NextResponse.json({ error: parseResult.error.issues[0]?.message || 'Invalid request' }, { status: 400 });
     }
-    const { text, roomId, replyTo, ttl } = parseResult.data;
+    const { text, roomId: rawRoomId, replyTo, ttl } = parseResult.data;
+    const roomId = normalizeRoomId(rawRoomId);
 
     const message: Record<string, unknown> = {
       id: crypto.randomUUID(),

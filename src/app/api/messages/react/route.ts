@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { sanitizeChannelName } from '@/lib/pusher';
 import { redis } from '@/lib/redis';
+import { normalizeRoomId } from '@/lib/friends';
 
 export async function POST(req: Request) {
   try {
@@ -15,11 +16,12 @@ export async function POST(req: Request) {
     if (!payload || !payload.sub) return new NextResponse('Unauthorized', { status: 401 });
     
     const sender = payload.sub;
-    const { msgId, roomId, emoji } = await req.json();
+    const { msgId, roomId: rawRoomId, emoji } = await req.json();
 
-    if (!msgId || !roomId || !emoji) {
+    if (!msgId || !rawRoomId || !emoji) {
       return new NextResponse('Missing fields', { status: 400 });
     }
+    const roomId = normalizeRoomId(rawRoomId);
 
     // Save to Redis (hash mapping username -> emoji for this message)
     const reactionKey = `reactions:${msgId}`;

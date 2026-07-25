@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { sanitizeChannelName } from '@/lib/pusher';
 import { redis } from '@/lib/redis';
+import { normalizeRoomId } from '@/lib/friends';
 
 export async function POST(req: Request) {
   try {
@@ -14,8 +15,9 @@ export async function POST(req: Request) {
     const payload = await verifyToken(token);
     if (!payload || !payload.sub) return new NextResponse('Unauthorized', { status: 401 });
 
-    const { messageIds, roomId } = await req.json();
-    if (!messageIds || !roomId) return new NextResponse('Missing fields', { status: 400 });
+    const { messageIds, roomId: rawRoomId } = await req.json();
+    if (!messageIds || !rawRoomId) return new NextResponse('Missing fields', { status: 400 });
+    const roomId = normalizeRoomId(rawRoomId);
 
     const pusherServer = getPusherServer();
 

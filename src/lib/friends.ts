@@ -18,6 +18,16 @@ export function getPrivateRoomId(user1: string, user2: string) {
   return `private-${sorted.join('-')}`;
 }
 
+export function normalizeRoomId(roomId: string): string {
+  if (roomId.startsWith('private-')) {
+    const parts = roomId.replace('private-', '').split('-');
+    if (parts.length === 2) {
+      return `private-${parts.sort().join('-')}`;
+    }
+  }
+  return roomId;
+}
+
 export async function isFriend(username1: string, username2: string): Promise<boolean> {
   return await redis.sismember(`friends:${username1}`, username2) === 1;
 }
