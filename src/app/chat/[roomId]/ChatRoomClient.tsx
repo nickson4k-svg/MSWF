@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { getPusherClient, sanitizeChannelName } from '@/lib/pusher';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Copy, ArrowLeft, CheckCircle2, Video as VideoIcon, Reply, X, Check, CheckCheck, Palette, Trash2 } from 'lucide-react';
+import { Send, Copy, ArrowLeft, CheckCircle2, Video as VideoIcon, Reply, X, Check, CheckCheck, Palette, Trash2, ChevronDown } from 'lucide-react';
 import { format, isToday, isYesterday, isSameDay, formatDistanceToNow } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { FriendList } from '@/components/friends/FriendList';
@@ -103,6 +103,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [deleteConfirmMsg, setDeleteConfirmMsg] = useState<Message | null>(null);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const userScrolledUpRef = useRef(false);
+  const prevMessagesLengthRef = useRef(messages.length);
 
   const usernameRef = useRef(username);
   useEffect(() => {
@@ -785,9 +788,38 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     return () => timers.forEach(t => clearTimeout(t));
   }, [messages]);
 
-  useEffect(() => {
+  const handleChatScroll = useCallback(() => {
+    const el = chatAreaRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const isUp = distanceFromBottom > 150;
+    setShowScrollBottom(isUp);
+    userScrolledUpRef.current = isUp;
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+    userScrolledUpRef.current = false;
+    setShowScrollBottom(false);
+  }, []);
+
+  useEffect(() => {
+    const isNewMessageAdded = messages.length > prevMessagesLengthRef.current;
+    const isInitialLoad = prevMessagesLengthRef.current <= 1 && messages.length > 0;
+    prevMessagesLengthRef.current = messages.length;
+
+    if (isInitialLoad) {
+      if (scrollRef.current) scrollRef.current.scrollIntoView();
+    } else if (isNewMessageAdded) {
+      const lastMsg = messages[messages.length - 1];
+      const isMyMsg = lastMsg?.sender === usernameRef.current;
+      if (isMyMsg || !userScrolledUpRef.current) {
+        if (scrollRef.current) {
+          scrollRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
     }
   }, [messages]);
 
@@ -979,6 +1011,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         ref={chatAreaRef} 
         className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-1 scroll-smooth"
         onClick={() => setContextMenu(null)}
+        onScroll={handleChatScroll}
       >
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-4 animate-fade-in opacity-50">
@@ -1107,6 +1140,17 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             Скасувати
           </button>
         </div>
+      )}
+
+      {/* Floating Scroll to Bottom Button */}
+      {showScrollBottom && (
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-24 right-6 z-40 p-3 rounded-full bg-zinc-900/90 border border-zinc-700/80 text-zinc-300 hover:text-white shadow-2xl hover:bg-zinc-800 transition-all transform hover:scale-110 active:scale-95 backdrop-blur-md flex items-center justify-center animate-in fade-in zoom-in duration-150"
+          title="Наниз"
+        >
+          <ChevronDown className="w-5 h-5 text-emerald-400" />
+        </button>
       )}
 
       {/* Input Area */}
