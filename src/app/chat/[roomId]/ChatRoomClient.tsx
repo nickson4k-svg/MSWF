@@ -696,18 +696,20 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       setMessages((prev) => {
         if (prev.find(m => m.id === dispMessage.id)) return prev;
         if (dispMessage.sender !== usernameRef.current) {
-          // 1. ALWAYS play sound when an incoming message arrives
-          playIncomingMessageSound();
+          const isFocusedInApp = !document.hidden && document.hasFocus();
 
-          const textPreview = dispMessage.text.startsWith('data:audio/') 
-            ? '🎤 Голосове повідомлення' 
-            : dispMessage.text.startsWith('{"type":"file-transfer-meta"') 
-              ? '📁 Передано файл' 
-              : dispMessage.text;
+          // Only play sound and show notifications if user is NOT actively focused in this chat
+          if (!isFocusedInApp) {
+            playIncomingMessageSound();
 
-          // 2. Native OS Desktop Notification (pops up on Windows/macOS right side)
-          if ('Notification' in window) {
-            if (Notification.permission === 'granted') {
+            const textPreview = dispMessage.text.startsWith('data:audio/') 
+              ? '🎤 Голосове повідомлення' 
+              : dispMessage.text.startsWith('{"type":"file-transfer-meta"') 
+                ? '📁 Передано файл' 
+                : dispMessage.text;
+
+            // 1. Native Desktop Notification for backgrounded/minimized app
+            if ('Notification' in window && Notification.permission === 'granted') {
               try {
                 const notif = new Notification(`Нове повідомлення від ${dispMessage.sender}`, {
                   body: textPreview,
@@ -717,35 +719,18 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                   window.focus();
                   notif.close();
                 };
-              } catch (e) {
-                console.error('Desktop notification failed:', e);
-              }
-            } else if (Notification.permission === 'default') {
-              Notification.requestPermission().then((perm) => {
-                if (perm === 'granted') {
-                  try {
-                    const notif = new Notification(`Нове повідомлення від ${dispMessage.sender}`, {
-                      body: textPreview,
-                      tag: `msg-${dispMessage.id}`,
-                    });
-                    notif.onclick = () => {
-                      window.focus();
-                      notif.close();
-                    };
-                  } catch (e) {}
-                }
-              });
+              } catch (e) {}
             }
-          }
 
-          // 3. In-App Telegram Toast popup (top right)
-          setToastNotif({
-            sender: dispMessage.sender,
-            text: textPreview,
-          });
+            // 2. In-App Telegram Toast popup
+            setToastNotif({
+              sender: dispMessage.sender,
+              text: textPreview,
+            });
 
-          if (document.hidden) {
-            incrementUnreadBadge();
+            if (document.hidden) {
+              incrementUnreadBadge();
+            }
           }
         }
         const next = [...prev, dispMessage];
