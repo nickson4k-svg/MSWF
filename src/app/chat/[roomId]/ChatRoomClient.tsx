@@ -106,6 +106,13 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const userScrolledUpRef = useRef(false);
   const prevMessagesLengthRef = useRef(messages.length);
+  const hasScrolledToBottomOnLoadRef = useRef(false);
+
+  useEffect(() => {
+    hasScrolledToBottomOnLoadRef.current = false;
+    userScrolledUpRef.current = false;
+    setShowScrollBottom(false);
+  }, [normalizedRoomId]);
 
   const usernameRef = useRef(username);
   useEffect(() => {
@@ -807,12 +814,31 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
   useEffect(() => {
     const isNewMessageAdded = messages.length > prevMessagesLengthRef.current;
-    const isInitialLoad = prevMessagesLengthRef.current <= 1 && messages.length > 0;
     prevMessagesLengthRef.current = messages.length;
 
-    if (isInitialLoad) {
-      if (scrollRef.current) scrollRef.current.scrollIntoView();
-    } else if (isNewMessageAdded) {
+    // Initial load upon entering chat room: scroll to bottom
+    if (messages.length > 0 && !hasScrolledToBottomOnLoadRef.current) {
+      const timer = setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollIntoView({ behavior: 'auto' });
+        }
+      }, 50);
+
+      const timer2 = setTimeout(() => {
+        if (scrollRef.current && !userScrolledUpRef.current) {
+          scrollRef.current.scrollIntoView({ behavior: 'auto' });
+        }
+      }, 200);
+
+      hasScrolledToBottomOnLoadRef.current = true;
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(timer2);
+      };
+    }
+
+    // Subsequent updates: ONLY scroll if a NEW message was added
+    if (hasScrolledToBottomOnLoadRef.current && isNewMessageAdded) {
       const lastMsg = messages[messages.length - 1];
       const isMyMsg = lastMsg?.sender === usernameRef.current;
       if (isMyMsg || !userScrolledUpRef.current) {
