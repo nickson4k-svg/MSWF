@@ -194,21 +194,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     }
 
     try {
-      const res = await fetch('/api/messages', {
+      await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(messagePayload),
       });
-      if (res.ok) {
-        const sentMessage: Message = await res.json();
-        const displayMessage = { ...sentMessage, text };
-        cacheMessages([displayMessage]);
-        setMessages(prev => {
-          if (prev.find(m => m.id === displayMessage.id)) return prev;
-          return [...prev, displayMessage];
-        });
-        playOutgoingMessageSound();
-      }
+      playOutgoingMessageSound();
     } catch (err) {
       console.error('Failed to send:', err);
     }
@@ -587,8 +578,17 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
       const dispMessage = { ...newMessage };
       // Feature 9: Decrypt incoming E2E message
-      if (dispMessage.text.startsWith('E2E:') && e2eKeyRef.current) {
-        dispMessage.text = await decryptText(dispMessage.text.substring(4), e2eKeyRef.current);
+      const key = e2eKeyRef.current;
+      if (dispMessage.text.startsWith('E2E:') && key) {
+        try {
+          dispMessage.text = await decryptText(dispMessage.text.substring(4), key);
+        } catch {
+          // fallback: try generating key
+          try {
+            const freshKey = await generateKeyFromRoomId(roomId);
+            dispMessage.text = await decryptText(dispMessage.text.substring(4), freshKey);
+          } catch {}
+        }
       }
 
       setMessages((prev) => {
@@ -599,7 +599,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             incrementUnreadBadge();
           }
         }
-        return [...prev, dispMessage];
+        const next = [...prev, dispMessage];
+        next.sort((a, b) => a.timestamp - b.timestamp);
+        return next;
       });
     });
 
@@ -671,13 +673,28 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     const unreadFromOthers = messages.filter(m => m.sender !== username && (!m.readBy || !m.readBy.includes(username)));
     if (unreadFromOthers.length === 0) return;
 
-    // Batch mark as read
-    const ids = unreadFromOthers.map(m => m.id);
-    fetch('/api/messages/read', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messageIds: ids, roomId }),
-    }).catch(() => {});
+    const timer = setTimeout(() => {
+      const ids = unreadFromOthers.map(m => m.id);
+      
+      // Optimistically update local readBy state so we don't re-send
+      setMessages(prev => prev.map(m => {
+        if (ids.includes(m.id)) {
+          const readBy = m.readBy ? [...m.readBy] : [];
+          if (!readBy.includes(username)) readBy.push(username);
+          return { ...m, readBy };
+        }
+        return m;
+      }));
+
+      // Send to server
+      fetch('/api/messages/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageIds: ids, roomId }),
+      }).catch(() => {});
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [messages, username, roomId]);
 
   // Feature 20: Auto-destruct messages with TTL
