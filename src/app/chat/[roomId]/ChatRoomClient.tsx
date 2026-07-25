@@ -116,6 +116,13 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {});
     }
+    const handleUserGesture = () => {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
+    };
+    window.addEventListener('click', handleUserGesture, { once: true });
+    return () => window.removeEventListener('click', handleUserGesture);
   }, []);
 
   const [prevRoomId, setPrevRoomId] = useState(normalizedRoomId);
@@ -689,23 +696,20 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       setMessages((prev) => {
         if (prev.find(m => m.id === dispMessage.id)) return prev;
         if (dispMessage.sender !== usernameRef.current) {
-          // ALWAYS play sound when an incoming message arrives
+          // 1. ALWAYS play sound when an incoming message arrives
           playIncomingMessageSound();
 
-          const isBackgrounded = document.hidden || !document.hasFocus();
+          const textPreview = dispMessage.text.startsWith('data:audio/') 
+            ? '🎤 Голосове повідомлення' 
+            : dispMessage.text.startsWith('{"type":"file-transfer-meta"') 
+              ? '📁 Передано файл' 
+              : dispMessage.text;
 
-          // Only show popup notification (toast & desktop) if app is in background/unfocused
-          if (isBackgrounded) {
-            const textPreview = dispMessage.text.startsWith('data:audio/') 
-              ? '🎤 Голосове повідомлення' 
-              : dispMessage.text.startsWith('{"type":"file-transfer-meta"') 
-                ? '📁 Передано файл' 
-                : dispMessage.text;
-
-            // 1. Native Desktop Notification for backgrounded/minimized app
-            if ('Notification' in window && Notification.permission === 'granted') {
+          // 2. Native OS Desktop Notification (pops up on Windows/macOS right side)
+          if ('Notification' in window) {
+            if (Notification.permission === 'granted') {
               try {
-                const notif = new Notification(dispMessage.sender, {
+                const notif = new Notification(`Нове повідомлення від ${dispMessage.sender}`, {
                   body: textPreview,
                   tag: `msg-${dispMessage.id}`,
                 });
@@ -713,18 +717,35 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                   window.focus();
                   notif.close();
                 };
-              } catch (e) {}
+              } catch (e) {
+                console.error('Desktop notification failed:', e);
+              }
+            } else if (Notification.permission === 'default') {
+              Notification.requestPermission().then((perm) => {
+                if (perm === 'granted') {
+                  try {
+                    const notif = new Notification(`Нове повідомлення від ${dispMessage.sender}`, {
+                      body: textPreview,
+                      tag: `msg-${dispMessage.id}`,
+                    });
+                    notif.onclick = () => {
+                      window.focus();
+                      notif.close();
+                    };
+                  } catch (e) {}
+                }
+              });
             }
+          }
 
-            // 2. In-App Telegram Toast popup
-            setToastNotif({
-              sender: dispMessage.sender,
-              text: textPreview,
-            });
+          // 3. In-App Telegram Toast popup (top right)
+          setToastNotif({
+            sender: dispMessage.sender,
+            text: textPreview,
+          });
 
-            if (document.hidden) {
-              incrementUnreadBadge();
-            }
+          if (document.hidden) {
+            incrementUnreadBadge();
           }
         }
         const next = [...prev, dispMessage];
