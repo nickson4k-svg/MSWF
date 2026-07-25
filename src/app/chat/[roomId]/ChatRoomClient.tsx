@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { getPusherClient, sanitizeChannelName } from '@/lib/pusher';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Copy, ArrowLeft, CheckCircle2, Video as VideoIcon, Reply, X, Check, CheckCheck, Palette } from 'lucide-react';
+import { Send, Copy, ArrowLeft, CheckCircle2, Video as VideoIcon, Reply, X, Check, CheckCheck, Palette, Trash2 } from 'lucide-react';
 import { format, isToday, isYesterday, isSameDay, formatDistanceToNow } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { FriendList } from '@/components/friends/FriendList';
@@ -102,6 +102,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [contextMenu, setContextMenu] = useState<{ msg: Message, x: number, y: number } | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
+  const [deleteConfirmMsg, setDeleteConfirmMsg] = useState<Message | null>(null);
 
   const usernameRef = useRef(username);
   useEffect(() => {
@@ -259,15 +260,21 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   }, []);
 
   const handleDeleteMessage = useCallback((msg: Message) => {
-    if (confirm('Видалити повідомлення?')) {
-      setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isDeleted: true, text: '' } : m));
-      fetch('/api/messages/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', msgId: msg.id, roomId: normalizedRoomId })
-      }).catch(err => console.error('Delete failed:', err));
-    }
-  }, [normalizedRoomId]);
+    setDeleteConfirmMsg(msg);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (!deleteConfirmMsg) return;
+    const msg = deleteConfirmMsg;
+    setDeleteConfirmMsg(null);
+
+    setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isDeleted: true, text: '' } : m));
+    fetch('/api/messages/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', msgId: msg.id, roomId: normalizedRoomId })
+    }).catch(err => console.error('Delete failed:', err));
+  }, [deleteConfirmMsg, normalizedRoomId]);
 
   const handleBack = useCallback(() => {
     router.push('/');
@@ -1074,6 +1081,45 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       </div>
 
     </div>
+
+    {/* Custom Delete Confirmation Modal */}
+    {deleteConfirmMsg && (
+      <div 
+        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+        onClick={() => setDeleteConfirmMsg(null)}
+      >
+        <div 
+          className="bg-zinc-900/95 border border-zinc-800 p-6 rounded-2xl shadow-2xl max-w-sm w-full space-y-5 animate-in zoom-in-95 duration-100 text-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mx-auto shadow-inner">
+            <Trash2 className="w-6 h-6" />
+          </div>
+          
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold text-zinc-100">Видалити повідомлення?</h3>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Цю дію неможливо скасувати. Повідомлення буде вилучено для всіх учасників чату.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <button 
+              onClick={() => setDeleteConfirmMsg(null)}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-zinc-300 font-medium text-sm transition-all"
+            >
+              Скасувати
+            </button>
+            <button 
+              onClick={confirmDelete}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 active:scale-95 text-white font-medium text-sm shadow-lg shadow-red-600/25 transition-all"
+            >
+              Видалити
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }
