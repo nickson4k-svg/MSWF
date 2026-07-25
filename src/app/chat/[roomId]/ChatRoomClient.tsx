@@ -194,12 +194,21 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     }
 
     try {
-      await fetch('/api/messages', {
+      const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(messagePayload),
       });
-      playOutgoingMessageSound();
+      if (res.ok) {
+        const sentMessage: Message = await res.json();
+        const displayMessage = { ...sentMessage, text };
+        cacheMessages([displayMessage]);
+        setMessages(prev => {
+          if (prev.find(m => m.id === displayMessage.id)) return prev;
+          return [...prev, displayMessage];
+        });
+        playOutgoingMessageSound();
+      }
     } catch (err) {
       console.error('Failed to send:', err);
     }

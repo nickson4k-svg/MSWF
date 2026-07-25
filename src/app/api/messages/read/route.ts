@@ -28,6 +28,25 @@ export async function POST(req: Request) {
       );
     }
 
+    // Feature 3: Persist readBy state in Redis list
+    const key = `messages:${roomId}`;
+    const rawMessages = await redis.lrange(key, 0, -1);
+    if (rawMessages && rawMessages.length > 0) {
+      for (let i = 0; i < rawMessages.length; i++) {
+        try {
+          const msg = JSON.parse(rawMessages[i]);
+          if (messageIds.includes(msg.id)) {
+            const readBy: string[] = Array.isArray(msg.readBy) ? msg.readBy : [];
+            if (!readBy.includes(payload.sub)) {
+              readBy.push(payload.sub);
+              msg.readBy = readBy;
+              await redis.lset(key, i, JSON.stringify(msg));
+            }
+          }
+        } catch {}
+      }
+    }
+
     // Feature 6: Reset unread count for the reader
     if (roomId.startsWith('private-')) {
       await redis.del(`unread:${roomId}:${payload.sub}`);
