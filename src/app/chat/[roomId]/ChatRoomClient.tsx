@@ -251,6 +251,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   if (prevRoomId !== normalizedRoomId) {
     setPrevRoomId(normalizedRoomId);
     setShowScrollBottom(false);
+    setMessages([]);
   }
 
   const userScrolledUpRef = useRef(false);
@@ -809,7 +810,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         } catch {
           // fallback: try generating key
           try {
-            const freshKey = await generateKeyFromRoomId(roomId);
+            const freshKey = await generateKeyFromRoomId(normalizedRoomId);
             dispMessage.text = await decryptText(dispMessage.text.substring(4), freshKey);
           } catch {}
         }

@@ -10,6 +10,8 @@ import Pusher from 'pusher-js';
 import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
 import { setUnreadBadgeCount, incrementUnreadBadge } from '@/lib/badge';
 import { playIncomingMessageSound } from '@/lib/sound';
+import { cacheMessages } from '@/lib/db';
+import { normalizeRoomId } from '@/lib/friends';
 
 interface FriendListItemProps {
   friend: FriendWithStatus;
@@ -114,7 +116,16 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
     });
 
     // Real-time incoming messages on user channel for main page & notifications
-    channel.bind('incoming-message', (data: { id: string; sender: string; text: string; roomId: string }) => {
+    channel.bind('incoming-message', (data: { id: string; sender: string; text: string; roomId: string; timestamp?: number }) => {
+      // Store in local cache so when opening chat, it is instantly available
+      cacheMessages([{
+        id: data.id,
+        text: data.text,
+        roomId: normalizeRoomId(data.roomId),
+        sender: data.sender,
+        timestamp: data.timestamp || Date.now()
+      }]);
+
       setFriends(prev => prev.map(f => {
         if (f.username === data.sender) {
           return { ...f, unreadCount: (f.unreadCount || 0) + 1 };
