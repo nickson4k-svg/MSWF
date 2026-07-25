@@ -268,7 +268,10 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     const msg = deleteConfirmMsg;
     setDeleteConfirmMsg(null);
 
-    setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isDeleted: true, text: '' } : m));
+    const updatedMsg = { ...msg, isDeleted: true, text: '' };
+    setMessages(prev => prev.map(m => m.id === msg.id ? updatedMsg : m));
+    cacheMessages([updatedMsg]);
+
     fetch('/api/messages/action', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -516,17 +519,13 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       cacheMessages(decryptedHistory);
       
       setMessages(prev => {
-        const ids = new Set(prev.map(m => m.id));
         const merged = [...prev];
         decryptedHistory.forEach(m => {
-          if (!ids.has(m.id)) {
+          const idx = merged.findIndex(x => x.id === m.id);
+          if (idx === -1) {
             merged.push(m);
           } else {
-            // Update existing in case it was a large message placeholder
-            const idx = merged.findIndex(x => x.id === m.id);
-            if (idx !== -1 && (merged[idx] as Message & { isLarge?: boolean }).isLarge) {
-              merged[idx] = m;
-            }
+            merged[idx] = { ...merged[idx], ...m };
           }
         });
         merged.sort((a, b) => a.timestamp - b.timestamp);
@@ -669,7 +668,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       setMessages(prev => prev.map(m => {
         if (m.id === data.msgId) {
           if (data.action === 'edit' || data.action === 'delete') {
-            return { ...m, ...data.msg };
+            const updated = { ...m, ...data.msg };
+            cacheMessages([updated]);
+            return updated;
           }
         }
         return m;

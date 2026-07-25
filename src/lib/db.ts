@@ -11,6 +11,9 @@ export interface CachedMessage {
   replyTo?: string;
   readBy?: string[];
   ttl?: number;
+  reactions?: Record<string, string>;
+  editedAt?: number;
+  isDeleted?: boolean;
 }
 
 export interface RoomSettings {
