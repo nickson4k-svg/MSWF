@@ -12,6 +12,7 @@ import { setUnreadBadgeCount, incrementUnreadBadge } from '@/lib/badge';
 import { playIncomingMessageSound } from '@/lib/sound';
 import { cacheMessages } from '@/lib/db';
 import { normalizeRoomId } from '@/lib/friends';
+import { showDesktopFloatingWindow, requestNotificationPermission } from '@/lib/notifications';
 
 interface FriendListItemProps {
   friend: FriendWithStatus;
@@ -71,6 +72,13 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
   const [showAddModal, setShowAddModal] = useState(false);
   const [globalToast, setGlobalToast] = useState<{ sender: string; text: string; roomId: string } | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    requestNotificationPermission();
+    const handleGesture = () => requestNotificationPermission();
+    window.addEventListener('click', handleGesture, { once: true });
+    return () => window.removeEventListener('click', handleGesture);
+  }, []);
 
   useEffect(() => {
     if (!globalToast) return;
@@ -147,19 +155,10 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
               ? '🔒 Зашифроване повідомлення'
               : data.text;
 
-        if ('Notification' in window && Notification.permission === 'granted') {
-          try {
-            const notif = new Notification(`Нове повідомлення від ${data.sender}`, {
-              body: textPreview,
-              tag: `msg-${data.id}`,
-            });
-            notif.onclick = () => {
-              window.focus();
-              router.push(`/chat/${data.roomId}`);
-              notif.close();
-            };
-          } catch (e) {}
-        }
+        // Trigger True OS Desktop Floating Window & Native Notifications
+        showDesktopFloatingWindow(data.sender, textPreview, () => {
+          router.push(`/chat/${data.roomId}`);
+        });
 
         setGlobalToast({
           sender: data.sender,

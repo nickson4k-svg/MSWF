@@ -23,6 +23,7 @@ import { parseMarkdown } from '@/lib/markdown';
 import { LinkPreview } from '@/components/chat/LinkPreview';
 import { Timer, Clock } from 'lucide-react';
 import { generateKeyFromRoomId, encryptText, decryptText } from '@/lib/e2ee';
+import { showDesktopFloatingWindow } from '@/lib/notifications';
 import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, saveRoomTheme, getRoomShader } from '@/lib/db';
 import { ShaderBackground, type ShaderType } from '@/components/ui/ShaderBackground';
 import { GemSmoke } from '@paper-design/shaders-react';
@@ -832,25 +833,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                 : dispMessage.text;
 
             // 1. Native Desktop Notification for backgrounded/minimized app
-            if ('Notification' in window && Notification.permission === 'granted') {
-              try {
-                const notif = new Notification(`Нове повідомлення від ${dispMessage.sender}`, {
-                  body: textPreview,
-                  tag: `msg-${dispMessage.id}`,
-                });
-                notif.onclick = () => {
-                  window.focus();
-                  notif.close();
-                };
-              } catch (e) {}
-            }
+            // 1. True OS Desktop Floating Window (DocPiP / Popup / Native Notification)
+            showDesktopFloatingWindow(dispMessage.sender, textPreview, () => {
+              window.focus();
+            });
 
-            // 2. Separate floating mini window on OS desktop if app is minimized
-            if (document.hidden) {
-              openMiniPopupWindow(dispMessage.sender, textPreview);
-            }
-
-            // 3. In-App Telegram Toast popup
+            // 2. In-App Telegram Toast popup
             setToastNotif({
               sender: dispMessage.sender,
               text: textPreview,
