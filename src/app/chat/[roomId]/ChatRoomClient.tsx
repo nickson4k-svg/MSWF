@@ -249,14 +249,25 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     fetch('/api/messages/react', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ msgId, roomId, emoji: currentEmoji === emoji ? '' : emoji })
+      body: JSON.stringify({ msgId, roomId: normalizedRoomId, emoji: currentEmoji === emoji ? '' : emoji })
     });
-  }, [messages, username, roomId]);
+  }, [messages, username, normalizedRoomId]);
 
   const handleReply = useCallback((msg: Message) => {
     setReplyTo(msg);
     inputRef.current?.focus();
   }, []);
+
+  const handleDeleteMessage = useCallback((msg: Message) => {
+    if (confirm('Видалити повідомлення?')) {
+      setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isDeleted: true, text: '' } : m));
+      fetch('/api/messages/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', msgId: msg.id, roomId: normalizedRoomId })
+      }).catch(err => console.error('Delete failed:', err));
+    }
+  }, [normalizedRoomId]);
 
   const handleBack = useCallback(() => {
     router.push('/');
@@ -950,6 +961,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
               onContextMenu={handleContextMenu}
               onReaction={handleReaction}
               onReply={handleReply}
+              onDelete={handleDeleteMessage}
               onScrollToReply={scrollToMessage}
             />
           );
@@ -995,14 +1007,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
               <button 
                 className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
                 onClick={() => {
-                  if (confirm('Видалити повідомлення?')) {
-                    fetch('/api/messages/action', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ action: 'delete', msgId: contextMenu.msg.id, roomId })
-                    });
-                  }
+                  const targetMsg = contextMenu.msg;
                   setContextMenu(null);
+                  handleDeleteMessage(targetMsg);
                 }}
               >
                 Видалити

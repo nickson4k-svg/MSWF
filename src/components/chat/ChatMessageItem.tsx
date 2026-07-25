@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useMemo } from 'react';
-import { Reply, Check, CheckCheck, Timer } from 'lucide-react';
+import { Reply, Check, CheckCheck, Timer, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { parseMarkdown } from '@/lib/markdown';
 import { LinkPreview } from './LinkPreview';
@@ -55,6 +55,7 @@ interface ChatMessageItemProps {
   onContextMenu: (e: React.MouseEvent, msg: Message) => void;
   onReaction: (msgId: string, emoji: string) => void;
   onReply: (msg: Message) => void;
+  onDelete?: (msg: Message) => void;
   onScrollToReply: (replyId: string) => void;
 }
 
@@ -73,6 +74,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   onContextMenu,
   onReaction,
   onReply,
+  onDelete,
   onScrollToReply,
 }: ChatMessageItemProps) {
   // Memoize heavy markdown parsing
@@ -109,7 +111,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   }, [msg.reactions]);
 
   return (
-    <div style={{ contentVisibility: 'auto', containIntrinsicSize: '0 60px' }}>
+    <div>
       {/* Date separator */}
       {showDateSeparator && (
         <div className="flex items-center gap-4 py-4">
@@ -155,17 +157,19 @@ export const ChatMessageItem = memo(function ChatMessageItem({
           )}
           
           {/* Reaction Button on Hover */}
-          <div className={`absolute top-0 -mt-10 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-800 border border-zinc-700 p-1.5 rounded-full shadow-xl flex gap-1 z-20 ${isMe ? 'right-0' : 'left-0'}`}>
-            {['👍', '❤️', '😂', '😮', '😡'].map(emoji => (
-              <button 
-                key={emoji}
-                onClick={() => onReaction(msg.id, emoji)}
-                className={`hover:bg-zinc-700 w-7 h-7 rounded-full flex items-center justify-center text-sm transition-transform hover:scale-125 ${msg.reactions?.[username] === emoji ? 'bg-zinc-700 bg-opacity-50' : ''}`}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
+          {!msg.isDeleted && (
+            <div className={`absolute -top-9 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-zinc-900/90 backdrop-blur-md border border-zinc-700/80 p-1.5 rounded-full shadow-2xl flex gap-1 z-30 ${isMe ? 'right-0' : 'left-0'}`}>
+              {['👍', '❤️', '😂', '😮', '😡'].map(emoji => (
+                <button 
+                  key={emoji}
+                  onClick={() => onReaction(msg.id, emoji)}
+                  className={`hover:bg-zinc-700/80 w-7 h-7 rounded-full flex items-center justify-center text-sm transition-transform hover:scale-125 ${msg.reactions?.[username] === emoji ? 'bg-zinc-700 bg-opacity-50' : ''}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
 
           {isFileMeta && fileMetaData ? (
             <FileMessage 
@@ -217,14 +221,25 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             </div>
           )}
 
-          {/* Reply button on hover */}
-          <button 
-            onClick={() => onReply(msg)}
-            className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 absolute ${isMe ? '-left-8' : '-right-8'} bottom-1`}
-            title="Відповісти"
-          >
-            <Reply className="w-4 h-4" />
-          </button>
+          {/* Hover Action Buttons: Reply & Delete */}
+          <div className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 absolute ${isMe ? '-left-16' : '-right-8'} bottom-1 z-20`}>
+            <button 
+              onClick={() => onReply(msg)}
+              className="p-1.5 rounded-full hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors"
+              title="Відповісти"
+            >
+              <Reply className="w-4 h-4" />
+            </button>
+            {isMe && !msg.isDeleted && onDelete && (
+              <button 
+                onClick={() => onDelete(msg)}
+                className="p-1.5 rounded-full hover:bg-red-500/20 text-zinc-500 hover:text-red-400 transition-colors"
+                title="Видалити"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Link preview */}
