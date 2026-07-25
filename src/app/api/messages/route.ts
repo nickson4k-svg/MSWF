@@ -75,6 +75,9 @@ export async function POST(req: Request) {
         if (target) {
           await redis.incr(`unread:${roomId}:${target}`);
           
+          // Trigger realtime event on the target user's personal channel so notifications work on main page
+          await pusherServer.trigger(`user-${sanitizeChannelName(target)}`, 'incoming-message', pusherMessage);
+          
           // Feature 16: Web Push Notifications
           try {
             const subStr = await redis.get(`push_subs:${target}`);

@@ -4,11 +4,12 @@ import { useState, useEffect, useCallback, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { FriendWithStatus } from '@/lib/friends';
 import { Button } from '@/components/ui/button';
-import { UserMinus, Plus } from 'lucide-react';
+import { UserMinus, Plus, X } from 'lucide-react';
 import { AddFriendModal } from './AddFriendModal';
 import Pusher from 'pusher-js';
 import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
-import { setUnreadBadgeCount } from '@/lib/badge';
+import { setUnreadBadgeCount, incrementUnreadBadge } from '@/lib/badge';
+import { playIncomingMessageSound } from '@/lib/sound';
 
 interface FriendListItemProps {
   friend: FriendWithStatus;
@@ -66,7 +67,14 @@ const FriendListItem = memo(function FriendListItem({
 export const FriendList = memo(function FriendList({ currentUser }: { currentUser: string }) {
   const [friends, setFriends] = useState<FriendWithStatus[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [globalToast, setGlobalToast] = useState<{ sender: string; text: string; roomId: string } | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    if (!globalToast) return;
+    const timer = setTimeout(() => setGlobalToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [globalToast]);
 
   useEffect(() => {
     let mounted = true;
@@ -86,7 +94,7 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
     // Initial heartbeat
     fetch('/api/presence/heartbeat', { method: 'POST' }).catch(() => {});
 
-    // Setup Pusher for real-time presence
+    // Setup Pusher for real-time presence & user notifications
     const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY || 'dummy_key', {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu',
     });
@@ -105,12 +113,61 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
       setFriends(prev => prev.filter(f => f.username !== data.username));
     });
 
+    // Real-time incoming messages on user channel for main page & notifications
+    channel.bind('incoming-message', (data: { id: string; sender: string; text: string; roomId: string }) => {
+      setFriends(prev => prev.map(f => {
+        if (f.username === data.sender) {
+          return { ...f, unreadCount: (f.unreadCount || 0) + 1 };
+        }
+        return f;
+      }));
+
+      const currentPath = window.location.pathname;
+      const isInsideThisChat = currentPath.includes(data.roomId);
+
+      if (!isInsideThisChat) {
+        playIncomingMessageSound();
+
+        const textPreview = data.text.startsWith('data:audio/') 
+          ? '🎤 Голосове повідомлення' 
+          : data.text.startsWith('{"type":"file-transfer-meta"') 
+            ? '📁 Передано файл' 
+            : data.text.startsWith('E2E:') 
+              ? '🔒 Зашифроване повідомлення'
+              : data.text;
+
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            const notif = new Notification(`Нове повідомлення від ${data.sender}`, {
+              body: textPreview,
+              tag: `msg-${data.id}`,
+            });
+            notif.onclick = () => {
+              window.focus();
+              router.push(`/chat/${data.roomId}`);
+              notif.close();
+            };
+          } catch (e) {}
+        }
+
+        setGlobalToast({
+          sender: data.sender,
+          text: textPreview,
+          roomId: data.roomId,
+        });
+
+        if (document.hidden) {
+          incrementUnreadBadge();
+        }
+      }
+    });
+
     return () => {
       mounted = false;
       clearInterval(interval);
       pusher.unsubscribe(`user-${currentUser}`);
     };
-  }, [currentUser]);
+  }, [currentUser, router]);
 
   useEffect(() => {
     const totalUnread = friends.reduce((sum, f) => sum + (f.unreadCount || 0), 0);
@@ -131,7 +188,7 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
   }, [currentUser, router]);
 
   return (
-    <div className="w-full h-full flex flex-col bg-zinc-900/50 rounded-2xl border border-zinc-800/50 overflow-hidden">
+    <div className="w-full h-full flex flex-col bg-zinc-900/50 rounded-2xl border border-zinc-800/50 overflow-hidden relative">
       <div className="p-4 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-950/50">
         <h3 className="font-semibold text-zinc-100">Мої друзі</h3>
         <Button variant="ghost" size="icon" onClick={() => setShowAddModal(true)} className="text-zinc-400 hover:text-white">
@@ -163,6 +220,43 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
       </div>
 
       {showAddModal && <AddFriendModal onClose={() => setShowAddModal(false)} />}
+
+      {/* Toast Popup Notification for Main Page & Global Messages */}
+      {globalToast && (
+        <div 
+          className="fixed top-5 right-5 z-50 max-w-xs sm:max-w-sm w-full bg-zinc-900/95 border border-zinc-700/80 p-3.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-3 animate-in slide-in-from-top-5 duration-300 cursor-pointer hover:border-zinc-500 transition-all group"
+          onClick={() => {
+            window.focus();
+            const targetRoom = globalToast.roomId;
+            setGlobalToast(null);
+            router.push(`/chat/${targetRoom}`);
+          }}
+        >
+          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0">
+            {(globalToast.sender[0] || 'U').toUpperCase()}
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-zinc-100 truncate">{globalToast.sender}</h4>
+              <span className="text-[10px] text-zinc-500 font-medium">Зараз</span>
+            </div>
+            <p className="text-xs text-zinc-300 truncate mt-0.5 font-normal">
+              {globalToast.text}
+            </p>
+          </div>
+
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              setGlobalToast(null);
+            }}
+            className="text-zinc-500 hover:text-zinc-300 p-1 rounded-full hover:bg-zinc-800 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 });
