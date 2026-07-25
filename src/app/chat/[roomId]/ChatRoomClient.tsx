@@ -689,12 +689,13 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       setMessages((prev) => {
         if (prev.find(m => m.id === dispMessage.id)) return prev;
         if (dispMessage.sender !== usernameRef.current) {
-          const isFocusedInApp = !document.hidden && document.hasFocus();
+          // ALWAYS play sound when an incoming message arrives
+          playIncomingMessageSound();
 
-          // Only play sound and show notifications if user is NOT actively focused in this chat
-          if (!isFocusedInApp) {
-            playIncomingMessageSound();
+          const isBackgrounded = document.hidden || !document.hasFocus();
 
+          // Only show popup notification (toast & desktop) if app is in background/unfocused
+          if (isBackgrounded) {
             const textPreview = dispMessage.text.startsWith('data:audio/') 
               ? '🎤 Голосове повідомлення' 
               : dispMessage.text.startsWith('{"type":"file-transfer-meta"') 
@@ -702,7 +703,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
                 : dispMessage.text;
 
             // 1. Native Desktop Notification for backgrounded/minimized app
-            if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+            if ('Notification' in window && Notification.permission === 'granted') {
               try {
                 const notif = new Notification(dispMessage.sender, {
                   body: textPreview,
