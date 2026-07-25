@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { FriendWithStatus } from '@/lib/friends';
 import { Button } from '@/components/ui/button';
-import { UserMinus, Plus, X } from 'lucide-react';
+import { UserMinus, Plus, X, Bell } from 'lucide-react';
 import { AddFriendModal } from './AddFriendModal';
 import Pusher from 'pusher-js';
 import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
@@ -71,7 +71,14 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
   const [friends, setFriends] = useState<FriendWithStatus[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [globalToast, setGlobalToast] = useState<{ sender: string; text: string; roomId: string } | null>(null);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>('granted');
   const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotifPermission(Notification.permission);
+    }
+  }, []);
 
   useEffect(() => {
     requestNotificationPermission();
@@ -205,6 +212,22 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
           <Plus className="w-5 h-5" />
         </Button>
       </div>
+
+      {notifPermission === 'default' && (
+        <div 
+          onClick={async () => {
+            const res = await requestNotificationPermission();
+            setNotifPermission(res);
+          }}
+          className="mx-2 my-2 p-2.5 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-center justify-between cursor-pointer hover:bg-blue-500/20 transition-all text-xs text-blue-300 shadow-sm"
+        >
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4 text-blue-400 flex-shrink-0 animate-bounce" />
+            <span>Увімкнути сповіщення на робочому столі</span>
+          </div>
+          <span className="font-semibold text-[11px] underline ml-2 flex-shrink-0">Дозволити</span>
+        </div>
+      )}
       
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {friends.length === 0 ? (
