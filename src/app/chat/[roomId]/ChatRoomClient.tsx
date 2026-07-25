@@ -689,36 +689,41 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       setMessages((prev) => {
         if (prev.find(m => m.id === dispMessage.id)) return prev;
         if (dispMessage.sender !== usernameRef.current) {
-          playIncomingMessageSound();
+          const isFocusedInApp = !document.hidden && document.hasFocus();
 
-          const textPreview = dispMessage.text.startsWith('data:audio/') 
-            ? '🎤 Голосове повідомлення' 
-            : dispMessage.text.startsWith('{"type":"file-transfer-meta"') 
-              ? '📁 Передано файл' 
-              : dispMessage.text;
+          // Only play sound and show notifications if user is NOT actively focused in this chat
+          if (!isFocusedInApp) {
+            playIncomingMessageSound();
 
-          // 1. Native Desktop Notification for backgrounded/minimized app
-          if ('Notification' in window && Notification.permission === 'granted') {
-            try {
-              const notif = new Notification(dispMessage.sender, {
-                body: textPreview,
-                tag: `msg-${dispMessage.id}`,
-              });
-              notif.onclick = () => {
-                window.focus();
-                notif.close();
-              };
-            } catch (e) {}
-          }
+            const textPreview = dispMessage.text.startsWith('data:audio/') 
+              ? '🎤 Голосове повідомлення' 
+              : dispMessage.text.startsWith('{"type":"file-transfer-meta"') 
+                ? '📁 Передано файл' 
+                : dispMessage.text;
 
-          // 2. In-App Telegram Toast popup
-          setToastNotif({
-            sender: dispMessage.sender,
-            text: textPreview,
-          });
+            // 1. Native Desktop Notification for backgrounded/minimized app
+            if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+              try {
+                const notif = new Notification(dispMessage.sender, {
+                  body: textPreview,
+                  tag: `msg-${dispMessage.id}`,
+                });
+                notif.onclick = () => {
+                  window.focus();
+                  notif.close();
+                };
+              } catch (e) {}
+            }
 
-          if (document.hidden) {
-            incrementUnreadBadge();
+            // 2. In-App Telegram Toast popup
+            setToastNotif({
+              sender: dispMessage.sender,
+              text: textPreview,
+            });
+
+            if (document.hidden) {
+              incrementUnreadBadge();
+            }
           }
         }
         const next = [...prev, dispMessage];
