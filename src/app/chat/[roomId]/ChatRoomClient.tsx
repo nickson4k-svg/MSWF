@@ -30,6 +30,7 @@ import { ChatHeader } from '@/components/chat/ChatHeader';
 import { ThemePickerModal } from '@/components/chat/ThemePickerModal';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatMessageItem, type Message } from '@/components/chat/ChatMessageItem';
+import { playIncomingMessageSound, playOutgoingMessageSound } from '@/lib/sound';
 
 // Feature 16: Helper for VAPID key
 function urlBase64ToUint8Array(base64String: string) {
@@ -98,6 +99,11 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [contextMenu, setContextMenu] = useState<{ msg: Message, x: number, y: number } | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
+
+  const usernameRef = useRef(username);
+  useEffect(() => {
+    usernameRef.current = username;
+  }, [username]);
 
   useEffect(() => {
     offlineQueueRef.current = offlineQueue;
@@ -192,6 +198,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(messagePayload),
       });
+      playOutgoingMessageSound();
     } catch (err) {
       console.error('Failed to send:', err);
     }
@@ -567,6 +574,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
       setMessages((prev) => {
         if (prev.find(m => m.id === dispMessage.id)) return prev;
+        if (dispMessage.sender !== usernameRef.current) {
+          playIncomingMessageSound();
+        }
         return [...prev, dispMessage];
       });
     });
