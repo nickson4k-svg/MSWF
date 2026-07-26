@@ -27,15 +27,16 @@ export async function POST(req: Request) {
     const msgsStr = await redis.lrange(key, 0, -1);
     const idx = msgsStr.findIndex(str => JSON.parse(str).id === msgId);
 
-    if (idx === -1) {
-      return new NextResponse('Message not found', { status: 404 });
+    let msg: Record<string, unknown>;
+    if (idx !== -1) {
+      msg = JSON.parse(msgsStr[idx]);
+    } else {
+      msg = { id: msgId, roomId, sender, timestamp: Date.now() };
     }
-
-    const msg = JSON.parse(msgsStr[idx]);
 
     // For editing: only original sender can edit
     if (action === 'edit') {
-      if (msg.sender !== sender) {
+      if (msg.sender && msg.sender !== sender) {
         return new NextResponse('Forbidden', { status: 403 });
       }
       if (!text) return new NextResponse('Missing text', { status: 400 });
@@ -57,7 +58,9 @@ export async function POST(req: Request) {
       return new NextResponse('Invalid action', { status: 400 });
     }
 
-    await redis.lset(key, idx, JSON.stringify(msg));
+    if (idx !== -1) {
+      await redis.lset(key, idx, JSON.stringify(msg));
+    }
 
     const pusherServer = getPusherServer();
 
@@ -72,6 +75,12 @@ export async function POST(req: Request) {
     if (roomId.startsWith('private-')) {
       const parts = roomId.replace('private-', '').split('-');
       for (const p of parts) {
+        await pusherServer.trigger(`user-${p}`, 'message-action', {
+          action,
+          msgId,
+          msg,
+          roomId
+        });
         await pusherServer.trigger(`user-${sanitizeChannelName(p)}`, 'message-action', {
           action,
           msgId,

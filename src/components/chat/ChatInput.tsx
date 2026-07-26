@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, memo } from 'react';
-import { Send, Reply, X, Timer, Mic, Square, Paperclip } from 'lucide-react';
+import { Send, Reply, X, Mic, Square, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
@@ -9,42 +9,31 @@ import EmojiPicker, { Theme } from 'emoji-picker-react';
 interface ChatInputProps {
   inputText: string;
   replyTo: { sender: string; text: string } | null;
-  selectedTtl: number;
+  selectedTtl?: number;
   isRecordingVoice: boolean;
   inputRef: React.RefObject<HTMLInputElement | null>;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSendMessage: (e: React.FormEvent) => void;
   onCancelReply: () => void;
-  onSelectTtl: (ttl: number) => void;
+  onSelectTtl?: (ttl: number) => void;
   onStartVoiceRecording: () => void;
   onStopVoiceRecording: () => void;
   onSendFile?: (file: File) => void;
 }
 
-const TTL_OPTIONS = [
-  { label: 'Без TTL', value: 0 },
-  { label: '10 сек', value: 10 },
-  { label: '1 хв', value: 60 },
-  { label: '5 хв', value: 300 },
-  { label: '1 день', value: 86400 },
-];
-
 export const ChatInput = memo(function ChatInput({
   inputText,
   replyTo,
-  selectedTtl,
   isRecordingVoice,
   inputRef,
   onInputChange,
   onSendMessage,
   onCancelReply,
-  onSelectTtl,
   onStartVoiceRecording,
   onStopVoiceRecording,
   onSendFile,
 }: ChatInputProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [showTtlPicker, setShowTtlPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -62,30 +51,7 @@ export const ChatInput = memo(function ChatInput({
         </div>
       )}
       <form onSubmit={onSendMessage} className="w-full flex gap-2 sm:gap-4 max-w-4xl mx-auto items-center relative">
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setShowTtlPicker(!showTtlPicker)}
-            className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all ${selectedTtl > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-zinc-900/80 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'}`}
-            title="Самознищення"
-          >
-            <Timer className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-          {showTtlPicker && (
-            <div className="absolute bottom-14 left-0 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl p-1 z-20 animate-slide-up min-w-[120px]">
-              {TTL_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => { onSelectTtl(opt.value); setShowTtlPicker(false); }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors ${selectedTtl === opt.value ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-300 hover:bg-zinc-800'}`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+
 
         <div className="relative">
           <button

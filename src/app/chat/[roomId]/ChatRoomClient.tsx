@@ -975,24 +975,41 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     });
 
     const userChannelName = `user-${sanitizeChannelName(username)}`;
+    const userChannelRawName = `user-${username}`;
     const userChannel = client.subscribe(userChannelName);
+    const userChannelRaw = client.subscribe(userChannelRawName);
 
     const handleMessageAction = (data: { action: string; msgId: string; msg: Message }) => {
-      setMessages(prev => prev.map(m => {
-        if (m.id === data.msgId) {
-          if (data.action === 'edit' || data.action === 'delete') {
-            const updated = { ...m, ...data.msg, isDeleted: data.action === 'delete' ? true : data.msg?.isDeleted };
-            cacheMessages([updated]);
-            return updated;
+      if (data.action === 'delete' || data.action === 'edit') {
+        const updatedMsg: Message = data.msg ? {
+          ...data.msg,
+          isDeleted: data.action === 'delete' ? true : data.msg.isDeleted,
+          text: data.action === 'delete' ? 'Повідомлення видалено' : data.msg.text
+        } : {
+          id: data.msgId,
+          text: 'Повідомлення видалено',
+          sender: '',
+          timestamp: Date.now(),
+          isDeleted: true
+        };
+
+        cacheMessages([updatedMsg]);
+
+        setMessages(prev => {
+          const exists = prev.some(m => m.id === data.msgId);
+          if (exists) {
+            return prev.map(m => m.id === data.msgId ? { ...m, ...updatedMsg } : m);
+          } else {
+            return [...prev, updatedMsg].sort((a, b) => a.timestamp - b.timestamp);
           }
-        }
-        return m;
-      }));
+        });
+      }
     };
 
     // Feature 11: message edit/delete actions
     channel.bind('message-action', handleMessageAction);
     userChannel.bind('message-action', handleMessageAction);
+    userChannelRaw.bind('message-action', handleMessageAction);
 
     // Feature: Theme syncing
     channel.bind('room-theme-changed', (data: { username: string; theme: string }) => {
@@ -1003,6 +1020,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     return () => {
       client.unsubscribe(channelName);
       client.unsubscribe(userChannelName);
+      client.unsubscribe(userChannelRawName);
     };
   }, [normalizedRoomId, username]);
 
