@@ -987,6 +987,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           text: data.action === 'delete' ? 'Повідомлення видалено' : data.msg.text
         } : {
           id: data.msgId,
+          roomId: normalizedRoomId,
           text: 'Повідомлення видалено',
           sender: '',
           timestamp: Date.now(),
