@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { GemSmoke } from '@paper-design/shaders-react';
 import { formatBytes } from '@/lib/webrtc';
 import { format } from 'date-fns';
-import { Message } from '@/types/chat';
+import { Message } from './ChatMessageItem';
 
 const subscribe = () => () => {};
 const getSnapshot = () => true;
@@ -113,7 +113,7 @@ export const FileTransferSidebar = memo(function FileTransferSidebar({
 
       const matches = msg.text.match(urlRegex);
       if (matches) {
-        matches.forEach(url => {
+        matches.forEach((url: string) => {
           try {
             const parsed = new URL(url);
             list.push({
