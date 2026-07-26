@@ -61,12 +61,25 @@ export async function POST(req: Request) {
 
     const pusherServer = getPusherServer();
 
-    // Trigger Pusher event
+    // Trigger Pusher event on room channel
     await pusherServer.trigger(`room-${sanitizeChannelName(roomId)}`, 'message-action', {
       action,
       msgId,
       msg
     });
+
+    // Also trigger on user channels for both participants if private room
+    if (roomId.startsWith('private-')) {
+      const parts = roomId.replace('private-', '').split('-');
+      for (const p of parts) {
+        await pusherServer.trigger(`user-${sanitizeChannelName(p)}`, 'message-action', {
+          action,
+          msgId,
+          msg,
+          roomId
+        });
+      }
+    }
 
     return NextResponse.json({ success: true, msg });
   } catch (error) {

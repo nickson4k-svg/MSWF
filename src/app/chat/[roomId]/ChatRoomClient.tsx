@@ -973,19 +973,25 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       }));
     });
 
-    // Feature 11: message edit/delete actions
-    channel.bind('message-action', (data: { action: string; msgId: string; msg: Message }) => {
+    const userChannelName = `user-${sanitizeChannelName(username)}`;
+    const userChannel = client.subscribe(userChannelName);
+
+    const handleMessageAction = (data: { action: string; msgId: string; msg: Message }) => {
       setMessages(prev => prev.map(m => {
         if (m.id === data.msgId) {
           if (data.action === 'edit' || data.action === 'delete') {
-            const updated = { ...m, ...data.msg };
+            const updated = { ...m, ...data.msg, isDeleted: data.action === 'delete' ? true : data.msg?.isDeleted };
             cacheMessages([updated]);
             return updated;
           }
         }
         return m;
       }));
-    });
+    };
+
+    // Feature 11: message edit/delete actions
+    channel.bind('message-action', handleMessageAction);
+    userChannel.bind('message-action', handleMessageAction);
 
     // Feature: Theme syncing
     channel.bind('room-theme-changed', (data: { username: string; theme: string }) => {
@@ -995,6 +1001,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
     return () => {
       client.unsubscribe(channelName);
+      client.unsubscribe(userChannelName);
     };
   }, [normalizedRoomId, username]);
 

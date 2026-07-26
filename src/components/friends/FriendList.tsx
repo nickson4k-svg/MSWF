@@ -130,6 +130,21 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
       setFriends(prev => prev.filter(f => f.username !== data.username));
     });
 
+    channel.bind('message-action', (data: { action: string; msgId: string; msg: { id: string; roomId: string; sender: string; timestamp: number; isDeleted?: boolean; text: string } }) => {
+      if (data.action === 'delete' || data.action === 'edit') {
+        if (data.msg && data.msg.roomId) {
+          cacheMessages([{
+            id: data.msgId,
+            text: data.action === 'delete' ? 'Повідомлення видалено' : data.msg.text,
+            roomId: normalizeRoomId(data.msg.roomId),
+            sender: data.msg.sender || '',
+            timestamp: data.msg.timestamp || Date.now(),
+            isDeleted: data.action === 'delete' ? true : data.msg.isDeleted
+          }]);
+        }
+      }
+    });
+
     // Real-time incoming messages on user channel for main page & notifications
     channel.bind('incoming-message', (data: { id: string; sender: string; text: string; roomId: string; timestamp?: number }) => {
       // Store in local cache so when opening chat, it is instantly available

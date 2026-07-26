@@ -182,7 +182,11 @@ export const ChatMessageItem = memo(function ChatMessageItem({
             </div>
           )}
 
-          {isFileMeta && fileMetaData ? (
+          {msg.isDeleted ? (
+            <div className={`px-5 py-3 shadow-lg bg-zinc-900 border border-zinc-800/80 text-zinc-500 italic rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
+              Повідомлення видалено
+            </div>
+          ) : isFileMeta && fileMetaData ? (
             <FileMessage 
               fileName={fileMetaData.fileName} 
               fileSize={fileMetaData.fileSize}
@@ -220,10 +224,6 @@ export const ChatMessageItem = memo(function ChatMessageItem({
                   </div>
                 </div>
               </div>
-            </div>
-          ) : msg.isDeleted ? (
-            <div className={`px-5 py-3 shadow-lg bg-zinc-900 border border-zinc-800/80 text-zinc-500 italic rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
-              Повідомлення видалено
             </div>
           ) : (
             <div 
