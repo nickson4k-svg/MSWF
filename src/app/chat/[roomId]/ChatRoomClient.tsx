@@ -1326,6 +1326,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
               onDelete={handleDeleteMessage}
               onScrollToReply={scrollToMessage}
               onMediaClick={handleMediaClick}
+              transfers={transfers}
             />
           );
         })}

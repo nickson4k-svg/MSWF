@@ -7,6 +7,8 @@ import { parseMarkdown } from '@/lib/markdown';
 import { LinkPreview } from './LinkPreview';
 import { FileMessage } from './FileMessage';
 
+import { FileTransfer } from '@/hooks/useFileTransfer';
+
 export interface Message {
   id: string;
   text: string;
@@ -58,6 +60,7 @@ interface ChatMessageItemProps {
   onDelete?: (msg: Message) => void;
   onScrollToReply: (replyId: string) => void;
   onMediaClick?: (url: string, type: 'image' | 'video', fileName: string) => void;
+  transfers?: FileTransfer[];
 }
 
 export const ChatMessageItem = memo(function ChatMessageItem({
@@ -78,6 +81,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   onDelete,
   onScrollToReply,
   onMediaClick,
+  transfers,
 }: ChatMessageItemProps) {
   // Memoize heavy markdown parsing
   const parsedHtml = useMemo(() => {
@@ -85,8 +89,8 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     return parseMarkdown(msg.text);
   }, [msg.text]);
 
-  const isDataImage = msg.text.startsWith('data:image/');
-  const isDataVideo = msg.text.startsWith('data:video/');
+  const isDataImage = msg.text.startsWith('data:image/') || /^https?:\/\/.*\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(msg.text.trim());
+  const isDataVideo = msg.text.startsWith('data:video/') || /^https?:\/\/.*\.(mp4|webm|mov|ogg)(\?.*)?$/i.test(msg.text.trim());
 
   // Memoize link extraction
   const firstUrl = useMemo(() => {
@@ -181,6 +185,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               fileName={fileMetaData.fileName} 
               fileSize={fileMetaData.fileSize}
               mimeType={fileMetaData.mimeType}
+              blobUrl={transfers?.find(t => t.fileMeta?.fileName === fileMetaData.fileName)?.blobUrl}
               isMe={isMe}
               onMediaClick={onMediaClick}
             />

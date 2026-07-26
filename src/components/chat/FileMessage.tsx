@@ -14,7 +14,7 @@ const getFileIcon = (mimeType: string) => {
 export const FileMessage = ({
   fileName,
   fileSize,
-  mimeType,
+  mimeType = '',
   blobUrl,
   isMe,
   onMediaClick,
@@ -27,26 +27,35 @@ export const FileMessage = ({
   onMediaClick?: (url: string, type: 'image' | 'video', fileName: string) => void;
 }) => {
   const [imageError, setImageError] = useState(false);
-  const isImage = mimeType?.startsWith('image/') && blobUrl && !imageError;
-  const isVideo = mimeType?.startsWith('video/') && blobUrl;
-  const isAudio = mimeType?.startsWith('audio/') && blobUrl;
+  const isImageMime = mimeType.startsWith('image/');
+  const isVideoMime = mimeType.startsWith('video/');
+  const isAudioMime = mimeType.startsWith('audio/');
 
   // Image preview (Telegram Style)
-  if (isImage) {
+  if (isImageMime) {
     return (
       <div 
-        className={`group relative overflow-hidden rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} max-w-[280px] sm:max-w-[340px] cursor-pointer shadow-lg hover:shadow-2xl transition-all border border-zinc-800/50`}
-        onClick={() => onMediaClick && onMediaClick(blobUrl, 'image', fileName)}
+        className={`group relative overflow-hidden rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} max-w-[280px] sm:max-w-[340px] ${blobUrl ? 'cursor-pointer' : ''} shadow-lg hover:shadow-2xl transition-all border border-zinc-800/50 bg-zinc-950`}
+        onClick={() => blobUrl && onMediaClick && onMediaClick(blobUrl, 'image', fileName)}
       >
-        <img
-          src={blobUrl}
-          alt={fileName}
-          className="w-full max-h-[320px] object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-          onError={() => setImageError(true)}
-          loading="lazy"
-        />
+        {blobUrl && !imageError ? (
+          <img
+            src={blobUrl}
+            alt={fileName}
+            className="w-full max-h-[320px] object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            onError={() => setImageError(true)}
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-44 bg-zinc-900/90 flex flex-col items-center justify-center p-4 text-center">
+            <ImageIcon className="w-10 h-10 text-blue-400 mb-2 animate-pulse" />
+            <span className="text-xs text-zinc-300 font-medium truncate max-w-[220px]">{fileName}</span>
+            <span className="text-[10px] text-zinc-500 mt-1">{formatBytes(fileSize)}</span>
+          </div>
+        )}
+        
         {/* Telegram Gradient Overlay with file info */}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3.5 flex items-center justify-between opacity-90 group-hover:opacity-100 transition-opacity">
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3 flex items-center justify-between opacity-90 group-hover:opacity-100 transition-opacity">
           <div className="flex flex-col min-w-0 pr-2">
             <span className="text-white text-xs font-semibold truncate" title={fileName}>{fileName}</span>
             <span className="text-zinc-300 text-[10px] font-medium">{formatBytes(fileSize)}</span>
@@ -68,24 +77,34 @@ export const FileMessage = ({
   }
 
   // Video preview (Telegram Style with Play Overlay)
-  if (isVideo) {
+  if (isVideoMime) {
     return (
       <div 
-        className={`group relative overflow-hidden rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} max-w-[320px] sm:max-w-[360px] cursor-pointer bg-zinc-950 border border-zinc-800/80 shadow-lg`}
-        onClick={() => onMediaClick && onMediaClick(blobUrl, 'video', fileName)}
+        className={`group relative overflow-hidden rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} max-w-[320px] sm:max-w-[360px] ${blobUrl ? 'cursor-pointer' : ''} bg-zinc-950 border border-zinc-800/80 shadow-lg`}
+        onClick={() => blobUrl && onMediaClick && onMediaClick(blobUrl, 'video', fileName)}
       >
         <div className="relative flex items-center justify-center bg-black/60 min-h-[180px]">
-          <video
-            src={blobUrl}
-            className="w-full max-h-[260px] object-cover rounded-t-2xl opacity-90 group-hover:opacity-100 transition-opacity"
-            preload="metadata"
-          />
-          {/* Telegram Play Icon Overlay */}
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-colors">
-            <div className="w-12 h-12 rounded-full bg-blue-600/90 text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
-              <Play className="w-6 h-6 ml-0.5 fill-white text-white" />
+          {blobUrl ? (
+            <video
+              src={blobUrl}
+              className="w-full max-h-[260px] object-cover rounded-t-2xl opacity-90 group-hover:opacity-100 transition-opacity"
+              preload="metadata"
+            />
+          ) : (
+            <div className="w-full h-44 bg-zinc-900/90 flex flex-col items-center justify-center p-4 text-center">
+              <Film className="w-10 h-10 text-purple-400 mb-2 animate-pulse" />
+              <span className="text-xs text-zinc-300 font-medium truncate max-w-[220px]">{fileName}</span>
             </div>
-          </div>
+          )}
+          
+          {/* Telegram Play Icon Overlay */}
+          {blobUrl && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-colors">
+              <div className="w-12 h-12 rounded-full bg-blue-600/90 text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                <Play className="w-6 h-6 ml-0.5 fill-white text-white" />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-zinc-900/90 px-3.5 py-2.5 flex items-center justify-between border-t border-zinc-800/60">
@@ -100,7 +119,7 @@ export const FileMessage = ({
   }
 
   // Audio preview
-  if (isAudio) {
+  if (isAudioMime) {
     return (
       <div className={`bg-zinc-900/80 border border-zinc-800/80 rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} p-3 max-w-[280px] shadow-md`}>
         <div className="flex items-center gap-2 mb-2">
@@ -108,7 +127,7 @@ export const FileMessage = ({
           <span className="text-xs text-zinc-300 truncate font-medium">{fileName}</span>
           <span className="text-[10px] text-zinc-500 flex-shrink-0">{formatBytes(fileSize)}</span>
         </div>
-        <audio src={blobUrl} controls className="w-full h-8" preload="metadata" />
+        {blobUrl && <audio src={blobUrl} controls className="w-full h-8" preload="metadata" />}
       </div>
     );
   }
@@ -117,7 +136,7 @@ export const FileMessage = ({
   return (
     <div className={`flex items-center gap-3 px-4 py-3 bg-zinc-900/80 border border-zinc-800/80 rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} text-zinc-300 w-fit max-w-[300px] group/file shadow-md`}>
       <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center flex-shrink-0">
-        {getFileIcon(mimeType || '')}
+        {getFileIcon(mimeType)}
       </div>
       <div className="flex flex-col flex-1 min-w-0">
         <span className="text-[12px] font-semibold text-emerald-400 mb-0.5">Файл передано</span>
