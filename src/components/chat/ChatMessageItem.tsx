@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useMemo } from 'react';
-import { Reply, Check, CheckCheck, Timer, Trash2 } from 'lucide-react';
+import { Reply, Check, CheckCheck, Timer, Trash2, Play } from 'lucide-react';
 import { format } from 'date-fns';
 import { parseMarkdown } from '@/lib/markdown';
 import { LinkPreview } from './LinkPreview';
@@ -57,6 +57,7 @@ interface ChatMessageItemProps {
   onReply: (msg: Message) => void;
   onDelete?: (msg: Message) => void;
   onScrollToReply: (replyId: string) => void;
+  onMediaClick?: (url: string, type: 'image' | 'video', fileName: string) => void;
 }
 
 export const ChatMessageItem = memo(function ChatMessageItem({
@@ -76,12 +77,16 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   onReply,
   onDelete,
   onScrollToReply,
+  onMediaClick,
 }: ChatMessageItemProps) {
   // Memoize heavy markdown parsing
   const parsedHtml = useMemo(() => {
-    if (msg.text.startsWith('data:audio/')) return '';
+    if (msg.text.startsWith('data:audio/') || msg.text.startsWith('data:image/') || msg.text.startsWith('data:video/')) return '';
     return parseMarkdown(msg.text);
   }, [msg.text]);
+
+  const isDataImage = msg.text.startsWith('data:image/');
+  const isDataVideo = msg.text.startsWith('data:video/');
 
   // Memoize link extraction
   const firstUrl = useMemo(() => {
@@ -177,7 +182,38 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               fileSize={fileMetaData.fileSize}
               mimeType={fileMetaData.mimeType}
               isMe={isMe}
+              onMediaClick={onMediaClick}
             />
+          ) : isDataImage ? (
+            <div 
+              className={`group relative overflow-hidden rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} max-w-[280px] sm:max-w-[340px] cursor-pointer shadow-lg hover:shadow-2xl transition-all border border-zinc-800/50`}
+              onClick={() => onMediaClick && onMediaClick(msg.text, 'image', 'Зображення')}
+            >
+              <img
+                src={msg.text}
+                alt="Зображення"
+                className="w-full max-h-[320px] object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                loading="lazy"
+              />
+            </div>
+          ) : isDataVideo ? (
+            <div 
+              className={`group relative overflow-hidden rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'} max-w-[320px] sm:max-w-[360px] cursor-pointer bg-zinc-950 border border-zinc-800/80 shadow-lg`}
+              onClick={() => onMediaClick && onMediaClick(msg.text, 'video', 'Відео')}
+            >
+              <div className="relative flex items-center justify-center bg-black/60 min-h-[180px]">
+                <video
+                  src={msg.text}
+                  className="w-full max-h-[260px] object-cover rounded-2xl opacity-90 group-hover:opacity-100 transition-opacity"
+                  preload="metadata"
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-colors">
+                  <div className="w-12 h-12 rounded-full bg-blue-600/90 text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                    <Play className="w-6 h-6 ml-0.5 fill-white text-white" />
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : msg.isDeleted ? (
             <div className={`px-5 py-3 shadow-lg bg-zinc-900 border border-zinc-800/80 text-zinc-500 italic rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
               Повідомлення видалено

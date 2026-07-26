@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, memo } from 'react';
-import { Send, Reply, X, Timer, Mic, Square } from 'lucide-react';
+import { useState, useRef, memo } from 'react';
+import { Send, Reply, X, Timer, Mic, Square, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
@@ -18,6 +18,7 @@ interface ChatInputProps {
   onSelectTtl: (ttl: number) => void;
   onStartVoiceRecording: () => void;
   onStopVoiceRecording: () => void;
+  onSendFile?: (file: File) => void;
 }
 
 const TTL_OPTIONS = [
@@ -107,6 +108,28 @@ export const ChatInput = memo(function ChatInput({
             </div>
           )}
         </div>
+
+        {/* File / Media Attachment Button */}
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          className="hidden" 
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file && onSendFile) {
+              onSendFile(file);
+              if (fileInputRef.current) fileInputRef.current.value = '';
+            }
+          }} 
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all bg-zinc-900/80 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+          title="Прикріпити фото / відео / файл"
+        >
+          <Paperclip className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-400" />
+        </button>
 
         <Input
           ref={inputRef}

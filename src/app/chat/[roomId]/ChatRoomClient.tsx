@@ -17,6 +17,7 @@ import { useFileTransfer } from '@/hooks/useFileTransfer';
 import { FileTransferSidebar, type RoomFileItem } from '@/components/chat/FileTransferSidebar';
 import { FileTransferModal } from '@/components/chat/FileTransferModal';
 import { FileMessage } from '@/components/chat/FileMessage';
+import { MediaViewerModal, type MediaItem } from '@/components/chat/MediaViewerModal';
 import { useCall } from '@/hooks/useCall';
 import { CallScreen } from '@/components/call/CallScreen';
 import { parseMarkdown } from '@/lib/markdown';
@@ -503,11 +504,82 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     ? normalizedRoomId.replace('private-', '').split('-').find(u => u !== username) 
     : undefined;
 
+  const [activeMediaIndex, setActiveMediaIndex] = useState<number | null>(null);
+
+  const roomMediaList = useMemo<MediaItem[]>(() => {
+    const list: MediaItem[] = [];
+    messages.forEach(msg => {
+      if (msg.isDeleted) return;
+
+      if (msg.text.startsWith('data:image/')) {
+        list.push({
+          id: msg.id,
+          url: msg.text,
+          type: 'image',
+          fileName: `Зображення_${format(new Date(msg.timestamp), 'HHmm')}.png`,
+          sender: msg.sender,
+          timestamp: msg.timestamp,
+        });
+      } else if (msg.text.startsWith('data:video/')) {
+        const mime = msg.text.substring(5, msg.text.indexOf(';'));
+        const ext = mime.split('/')[1] || 'mp4';
+        list.push({
+          id: msg.id,
+          url: msg.text,
+          type: 'video',
+          fileName: `Відео_${format(new Date(msg.timestamp), 'HHmm')}.${ext}`,
+          sender: msg.sender,
+          timestamp: msg.timestamp,
+        });
+      } else if (msg.text.startsWith('{"type":"file-transfer-meta"')) {
+        try {
+          const meta = JSON.parse(msg.text);
+          const mime = meta.mimeType || '';
+          if (mime.startsWith('image/') || mime.startsWith('video/')) {
+            const tr = transfers.find(t => t.fileMeta.fileName === meta.fileName && t.blobUrl);
+            if (tr && tr.blobUrl) {
+              list.push({
+                id: msg.id,
+                url: tr.blobUrl,
+                type: mime.startsWith('image/') ? 'image' : 'video',
+                fileName: meta.fileName,
+                sender: msg.sender,
+                timestamp: msg.timestamp,
+              });
+            }
+          }
+        } catch {}
+      }
+    });
+    return list;
+  }, [messages, transfers]);
+
+  const handleMediaClick = useCallback((url: string, type: 'image' | 'video', fileName: string) => {
+    const idx = roomMediaList.findIndex(m => m.url === url);
+    if (idx !== -1) {
+      setActiveMediaIndex(idx);
+    } else {
+      setActiveMediaIndex(0);
+    }
+  }, [roomMediaList]);
+
   const handleSendFile = useCallback((f: File) => {
+    if (f.type.startsWith('image/') || f.type.startsWith('video/')) {
+      if (f.size <= 8 * 1024 * 1024) {
+        const reader = new FileReader();
+        reader.readAsDataURL(f);
+        reader.onloadend = () => {
+          const base64Data = reader.result as string;
+          sendMessage(base64Data);
+        };
+        return;
+      }
+    }
+
     if (targetUsername) {
       initiateTransfer(f, targetUsername, normalizedRoomId);
     }
-  }, [targetUsername, normalizedRoomId, initiateTransfer]);
+  }, [targetUsername, normalizedRoomId, initiateTransfer, sendMessage]);
 
   const roomFiles = useMemo<RoomFileItem[]>(() => {
     const files: RoomFileItem[] = [];
@@ -1253,6 +1325,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
               onReply={handleReply}
               onDelete={handleDeleteMessage}
               onScrollToReply={scrollToMessage}
+              onMediaClick={handleMediaClick}
             />
           );
         })}
@@ -1368,6 +1441,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         onSelectTtl={(ttl) => setSelectedTtl(ttl)}
         onStartVoiceRecording={startVoiceRecording}
         onStopVoiceRecording={stopVoiceRecording}
+        onSendFile={handleSendFile}
       />
       </div>
 
@@ -1451,6 +1525,16 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           <X className="w-4 h-4" />
         </button>
       </div>
+    )}
+
+    {/* Telegram Fullscreen Media Viewer Modal */}
+    {activeMediaIndex !== null && roomMediaList.length > 0 && (
+      <MediaViewerModal
+        mediaList={roomMediaList}
+        currentIndex={activeMediaIndex}
+        onClose={() => setActiveMediaIndex(null)}
+        onNavigate={(idx) => setActiveMediaIndex(idx)}
+      />
     )}
     </>
   );
