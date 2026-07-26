@@ -70,6 +70,7 @@ export const CallScreen = ({
   isMuted,
   isVideoOff,
   isScreenSharing,
+  isRemoteScreenSharing,
   targetUsername,
   currentUser,
   currentUserAvatar,
@@ -91,6 +92,7 @@ export const CallScreen = ({
   isMuted: boolean;
   isVideoOff: boolean;
   isScreenSharing: boolean;
+  isRemoteScreenSharing?: boolean;
   targetUsername?: string;
   currentUser?: string;
   currentUserAvatar?: string;
@@ -221,6 +223,7 @@ export const CallScreen = ({
           screenStream={screenStream}
           remoteStream={remoteStream}
           isScreenSharing={isScreenSharing}
+          isRemoteScreenSharing={isRemoteScreenSharing}
           isVideoOff={isVideoOff}
           isBgBlurred={isBgBlurred}
           targetUsername={targetUsername || incomingCall?.sender}

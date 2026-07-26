@@ -1201,6 +1201,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         isMuted={isMuted}
         isVideoOff={isVideoOff}
         isScreenSharing={isScreenSharing}
+        isRemoteScreenSharing={isRemoteScreenSharing}
         targetUsername={targetUsername}
         currentUser={username}
         currentUserAvatar={currentUserAvatar}

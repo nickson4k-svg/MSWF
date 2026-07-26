@@ -158,13 +158,20 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
     setLocalScreenStream(scrStream.getTracks().length > 0 ? scrStream : null);
   }, []);
 
+  const [isRemoteScreenSharing, setIsRemoteScreenSharing] = useState(false);
+
   const updateRemoteStream = useCallback((r: Room) => {
     const stream = new MediaStream();
+    let hasScreen = false;
     r.remoteParticipants.forEach(participant => {
       const videoPubs = Array.from(participant.videoTrackPublications.values());
       const screenSharePub = videoPubs.find(p => p.source === Track.Source.ScreenShare);
       const cameraPub = videoPubs.find(p => p.source === Track.Source.Camera);
       
+      if (screenSharePub && screenSharePub.isSubscribed) {
+        hasScreen = true;
+      }
+
       const activeVideoPub = screenSharePub || cameraPub;
       if (activeVideoPub?.track?.mediaStreamTrack) {
         stream.addTrack(activeVideoPub.track.mediaStreamTrack);
@@ -174,6 +181,7 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
         if (p.track?.mediaStreamTrack) stream.addTrack(p.track.mediaStreamTrack);
       });
     });
+    setIsRemoteScreenSharing(hasScreen);
     setRemoteStream(stream.getTracks().length > 0 ? stream : null);
   }, []);
 
@@ -421,6 +429,7 @@ export const useCall = (currentUser: string, targetUsername?: string) => {
     isMuted,
     isVideoOff,
     isScreenSharing,
+    isRemoteScreenSharing,
     networkQuality,
     startCall,
     acceptCall,
