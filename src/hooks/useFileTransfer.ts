@@ -3,6 +3,7 @@ import { getPusherClient } from '@/lib/pusher';
 import { sendSignal, WebRTCSignal, FileMeta } from '@/lib/webrtc';
 import { Room, RoomEvent } from 'livekit-client';
 import { sendFileOverLiveKit, receiveFileOverLiveKit } from '@/lib/livekit-file';
+import { saveMediaBlob } from '@/lib/db';
 
 export interface FileTransfer {
   id: string;
@@ -129,7 +130,13 @@ export const useFileTransfer = (
             await sendFileOverLiveKit(file, room, (progress) => {
               updateTransferStatus(transferId, 'transferring', progress);
             });
-            updateTransferStatus(transferId, 'completed', 100);
+            const objectUrl = URL.createObjectURL(file);
+            updateTransferStatus(transferId, 'completed', 100, objectUrl);
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onloadend = () => {
+              if (reader.result) saveMediaBlob(file.name, reader.result as string);
+            };
             if (onTransferComplete) {
               onTransferComplete({ fileName: file.name, fileSize: file.size, mimeType: file.type });
             }
@@ -180,6 +187,17 @@ export const useFileTransfer = (
         (blobUrl) => {
           updateTransferStatus(id, 'completed', 100, blobUrl);
           if (onTransferComplete) onTransferComplete(fileMeta);
+
+          fetch(blobUrl)
+            .then(res => res.blob())
+            .then(blob => {
+              const reader = new FileReader();
+              reader.readAsDataURL(blob);
+              reader.onloadend = () => {
+                if (reader.result) saveMediaBlob(fileMeta.fileName, reader.result as string);
+              };
+            })
+            .catch(() => {});
           
           // Auto-download the file
           const a = document.createElement('a');

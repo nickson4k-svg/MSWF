@@ -25,7 +25,7 @@ import { LinkPreview } from '@/components/chat/LinkPreview';
 import { Timer, Clock } from 'lucide-react';
 import { generateKeyFromRoomId, encryptText, decryptText } from '@/lib/e2ee';
 import { showDesktopFloatingWindow } from '@/lib/notifications';
-import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, saveRoomTheme, getRoomShader } from '@/lib/db';
+import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, saveRoomTheme, getRoomShader, saveMediaBlob, getMediaBlobsMap } from '@/lib/db';
 import { ShaderBackground, type ShaderType } from '@/components/ui/ShaderBackground';
 import { GemSmoke } from '@paper-design/shaders-react';
 import { ChatHeader } from '@/components/chat/ChatHeader';
@@ -505,6 +505,11 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     : undefined;
 
   const [activeMediaIndex, setActiveMediaIndex] = useState<number | null>(null);
+  const [cachedMediaBlobs, setCachedMediaBlobs] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    getMediaBlobsMap().then(map => setCachedMediaBlobs(map));
+  }, [messages.length, transfers.length]);
 
   const roomMediaList = useMemo<MediaItem[]>(() => {
     const list: MediaItem[] = [];
@@ -536,11 +541,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           const meta = JSON.parse(msg.text);
           const mime = meta.mimeType || '';
           if (mime.startsWith('image/') || mime.startsWith('video/')) {
-            const tr = transfers.find(t => t.fileMeta.fileName === meta.fileName && t.blobUrl);
-            if (tr && tr.blobUrl) {
+            const trBlob = transfers.find(t => t.fileMeta.fileName === meta.fileName && t.blobUrl)?.blobUrl;
+            const mediaUrl = trBlob || cachedMediaBlobs[meta.fileName];
+            if (mediaUrl) {
               list.push({
                 id: msg.id,
-                url: tr.blobUrl,
+                url: mediaUrl,
                 type: mime.startsWith('image/') ? 'image' : 'video',
                 fileName: meta.fileName,
                 sender: msg.sender,
@@ -552,7 +558,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       }
     });
     return list;
-  }, [messages, transfers]);
+  }, [messages, transfers, cachedMediaBlobs]);
 
   const handleMediaClick = useCallback((url: string, type: 'image' | 'video', fileName: string) => {
     const idx = roomMediaList.findIndex(m => m.url === url);
@@ -565,11 +571,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
   const handleSendFile = useCallback((f: File) => {
     if (f.type.startsWith('image/') || f.type.startsWith('video/')) {
-      if (f.size <= 8 * 1024 * 1024) {
+      if (f.size <= 16 * 1024 * 1024) {
         const reader = new FileReader();
         reader.readAsDataURL(f);
         reader.onloadend = () => {
           const base64Data = reader.result as string;
+          saveMediaBlob(f.name, base64Data);
           sendMessage(base64Data);
         };
         return;
@@ -1327,6 +1334,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
               onScrollToReply={scrollToMessage}
               onMediaClick={handleMediaClick}
               transfers={transfers}
+              cachedMediaBlobs={cachedMediaBlobs}
             />
           );
         })}

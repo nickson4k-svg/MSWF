@@ -22,15 +22,23 @@ export interface RoomSettings {
   shaderType?: string;
 }
 
+export interface CachedMediaBlob {
+  fileName: string;
+  dataUrl: string;
+  timestamp: number;
+}
+
 class NexusChatDB extends Dexie {
   messages!: EntityTable<CachedMessage, 'id'>;
   settings!: EntityTable<RoomSettings, 'roomId'>;
+  mediaBlobs!: EntityTable<CachedMediaBlob, 'fileName'>;
 
   constructor() {
     super('NexusChatDB');
-    this.version(2).stores({
+    this.version(3).stores({
       messages: 'id, roomId, timestamp',
       settings: 'roomId',
+      mediaBlobs: 'fileName, timestamp',
     });
   }
 }
@@ -106,5 +114,29 @@ export async function getRoomShader(roomId: string): Promise<string> {
     return setting?.shaderType || 'fluid';
   } catch {
     return 'fluid';
+  }
+}
+
+/** Save image / video media blob URL to IndexedDB cache */
+export async function saveMediaBlob(fileName: string, dataUrl: string) {
+  try {
+    await db.mediaBlobs.put({ fileName, dataUrl, timestamp: Date.now() });
+  } catch (err) {
+    console.warn('Failed to save media blob:', err);
+  }
+}
+
+/** Retrieve all cached media blobs map: fileName -> dataUrl */
+export async function getMediaBlobsMap(): Promise<Record<string, string>> {
+  try {
+    const list = await db.mediaBlobs.toArray();
+    const map: Record<string, string> = {};
+    list.forEach(item => {
+      map[item.fileName] = item.dataUrl;
+    });
+    return map;
+  } catch (err) {
+    console.warn('Failed to get media blobs map:', err);
+    return {};
   }
 }

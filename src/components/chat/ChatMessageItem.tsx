@@ -61,6 +61,7 @@ interface ChatMessageItemProps {
   onScrollToReply: (replyId: string) => void;
   onMediaClick?: (url: string, type: 'image' | 'video', fileName: string) => void;
   transfers?: FileTransfer[];
+  cachedMediaBlobs?: Record<string, string>;
 }
 
 export const ChatMessageItem = memo(function ChatMessageItem({
@@ -82,6 +83,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   onScrollToReply,
   onMediaClick,
   transfers,
+  cachedMediaBlobs,
 }: ChatMessageItemProps) {
   // Memoize heavy markdown parsing
   const parsedHtml = useMemo(() => {
@@ -185,7 +187,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               fileName={fileMetaData.fileName} 
               fileSize={fileMetaData.fileSize}
               mimeType={fileMetaData.mimeType}
-              blobUrl={transfers?.find(t => t.fileMeta?.fileName === fileMetaData.fileName)?.blobUrl}
+              blobUrl={transfers?.find(t => t.fileMeta?.fileName === fileMetaData.fileName)?.blobUrl || cachedMediaBlobs?.[fileMetaData.fileName]}
               isMe={isMe}
               onMediaClick={onMediaClick}
             />
