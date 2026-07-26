@@ -191,33 +191,36 @@ export const FileTransferSidebar = memo(function FileTransferSidebar({
         </Button>
       </div>
 
-      {/* Filter Tabs Bar */}
-      <div className="flex items-center gap-1 p-2 bg-zinc-950/60 border-b border-zinc-800/80 overflow-x-auto no-scrollbar scrollbar-none">
+      {/* Filter Tabs Bar (5 Columns Grid - 100% Width Fit) */}
+      <div className="grid grid-cols-5 gap-1 p-1.5 bg-zinc-950/70 border-b border-zinc-800/80">
         {[
           { id: 'all', label: 'Все', icon: LayoutGrid, count: totalItemCount + links.length },
           { id: 'media', label: 'Медіа', icon: ImageIcon, count: mediaItems.length },
           { id: 'files', label: 'Файли', icon: FileText, count: fileItems.length },
           { id: 'music', label: 'Музика', icon: Music, count: musicItems.length },
-          { id: 'links', label: 'Посилання', icon: LinkIcon, count: links.length },
+          { id: 'links', label: 'Ліинки', icon: LinkIcon, count: links.length },
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as FilterTab)}
-            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-medium flex items-center gap-1.5 transition-all flex-shrink-0 whitespace-nowrap ${
+            title={`${tab.label} (${tab.count})`}
+            className={`py-1.5 px-0.5 rounded-xl text-[10px] font-semibold flex flex-col items-center justify-center gap-0.5 transition-all relative ${
               activeTab === tab.id
-                ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/30 shadow-md font-semibold'
+                ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/40 shadow-sm font-bold'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 border border-transparent'
             }`}
           >
-            <tab.icon className="w-3.5 h-3.5" />
-            <span>{tab.label}</span>
-            {tab.count > 0 && (
-              <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${
-                activeTab === tab.id ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-800 text-zinc-500'
-              }`}>
-                {tab.count}
-              </span>
-            )}
+            <div className="relative flex items-center justify-center">
+              <tab.icon className="w-3.5 h-3.5" />
+              {tab.count > 0 && (
+                <span className={`absolute -top-1.5 -right-2 text-[8px] font-bold px-1 py-0.2 rounded-full min-w-[14px] text-center ${
+                  activeTab === tab.id ? 'bg-emerald-500 text-black' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                }`}>
+                  {tab.count > 99 ? '99+' : tab.count}
+                </span>
+              )}
+            </div>
+            <span className="truncate max-w-full leading-none text-[10px] mt-0.5">{tab.label}</span>
           </button>
         ))}
       </div>
