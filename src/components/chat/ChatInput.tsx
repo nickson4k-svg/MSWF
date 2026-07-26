@@ -41,9 +41,11 @@ export const ChatInput = memo(function ChatInput({
   onSelectTtl,
   onStartVoiceRecording,
   onStopVoiceRecording,
+  onSendFile,
 }: ChatInputProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showTtlPicker, setShowTtlPicker] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <footer className="p-3 sm:p-6 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800/60 z-10" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}>
