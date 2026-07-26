@@ -1257,6 +1257,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             <FileTransferSidebar 
               transfers={transfers}
               roomFiles={roomFiles}
+              messages={messages}
+              currentUsername={username}
               onCancelTransfer={cancelTransfer}
               onSendFile={handleSendFile}
               isFriendOnline={true}
