@@ -1023,13 +1023,17 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         }, 600);
         return;
       }
+
+      const targetId = data.msgId || data.msg?.id;
+      if (!targetId) return;
+
       if (data.action === 'delete' || data.action === 'edit') {
         const updatedMsg: Message = data.msg ? {
           ...data.msg,
           isDeleted: data.action === 'delete' ? true : data.msg.isDeleted,
           text: data.action === 'delete' ? 'Повідомлення видалено' : data.msg.text
         } : {
-          id: data.msgId,
+          id: targetId,
           roomId: normalizedRoomId,
           text: 'Повідомлення видалено',
           sender: '',
@@ -1040,9 +1044,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         cacheMessages([updatedMsg]);
 
         setMessages(prev => {
-          const exists = prev.some(m => m.id === data.msgId);
+          const exists = prev.some(m => m.id === targetId);
           if (exists) {
-            return prev.map(m => m.id === data.msgId ? { ...m, ...updatedMsg } : m);
+            return prev.map(m => m.id === targetId ? { ...m, ...updatedMsg } : m);
           } else {
             return [...prev, updatedMsg].sort((a, b) => a.timestamp - b.timestamp);
           }
