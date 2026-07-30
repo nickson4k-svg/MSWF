@@ -318,8 +318,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     if (!text.trim() || !username) return;
     
     let payloadText = text;
-    // Feature 9: Encrypt text if E2EE key is available and it's not a voice message (base64 is already obfuscated, but we can encrypt it too if we want)
-    if (e2eKey) {
+    // Feature 9: Encrypt text if E2EE key is available and it's NOT a binary data URL (image, video, audio, file)
+    if (e2eKey && !text.startsWith('data:')) {
       try {
         payloadText = await encryptText(text, e2eKey);
         payloadText = 'E2E:' + payloadText; // Add prefix so receiver knows
@@ -336,15 +336,19 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       ttl: selectedTtl || undefined,
     };
 
+    // Optimistic local state update so sender sees the message/photo instantly
+    const tempMsg: Message = {
+      id: crypto.randomUUID(),
+      roomId: normalizedRoomId,
+      text: text, // Show unencrypted / raw base64 locally
+      sender: username,
+      timestamp: Date.now(),
+      replyTo: replyTo?.id || undefined,
+      ttl: selectedTtl || undefined,
+    };
+
     if (!isOnline) {
       setOfflineQueue(prev => [...prev, messagePayload]);
-      // Optimistic cache so user sees it locally
-      const tempMsg = {
-        id: crypto.randomUUID(),
-        ...messagePayload,
-        text: text, // Show unencrypted text locally
-        timestamp: Date.now()
-      };
       cacheMessages([tempMsg]);
       setMessages(prev => [...prev, tempMsg]);
       return;
@@ -365,12 +369,23 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       return;
     }
 
+    // Add optimistic message locally
+    cacheMessages([tempMsg]);
+    setMessages(prev => {
+      if (prev.some(m => m.id === tempMsg.id)) return prev;
+      return [...prev, tempMsg];
+    });
+
     try {
-      await fetch('/api/messages', {
+      const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(messagePayload),
       });
+      if (!res.ok) {
+        console.error('Failed to send:', await res.text());
+        return;
+      }
       playOutgoingMessageSound();
     } catch (err) {
       console.error('Failed to send:', err);
@@ -654,18 +669,65 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     }
   }, [roomMediaList]);
 
-  const handleSendFile = useCallback((f: File) => {
-    if (f.type.startsWith('image/') || f.type.startsWith('video/')) {
-      if (f.size <= 16 * 1024 * 1024) {
+  const handleSendFile = useCallback(async (f: File) => {
+    if (f.type.startsWith('image/')) {
+      try {
         const reader = new FileReader();
-        reader.readAsDataURL(f);
-        reader.onloadend = () => {
-          const base64Data = reader.result as string;
+        const base64Data = await new Promise<string>((resolve) => {
+          reader.readAsDataURL(f);
+          reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target?.result as string;
+            img.onload = () => {
+              let width = img.width;
+              let height = img.height;
+              const maxWidth = 1920;
+              const maxHeight = 1920;
+              if (width > maxWidth || height > maxHeight) {
+                if (width > height) {
+                  height = Math.round((height * maxWidth) / width);
+                  width = maxWidth;
+                } else {
+                  width = Math.round((width * maxHeight) / height);
+                  height = maxHeight;
+                }
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) {
+                resolve(e.target?.result as string);
+                return;
+              }
+              ctx.drawImage(img, 0, 0, width, height);
+              const mimeType = f.type === 'image/png' ? 'image/png' : 'image/jpeg';
+              resolve(canvas.toDataURL(mimeType, 0.85));
+            };
+            img.onerror = () => resolve((e.target?.result as string) || '');
+          };
+          reader.onerror = () => resolve('');
+        });
+
+        if (base64Data) {
           saveMediaBlob(f.name, base64Data);
           sendMessage(base64Data);
-        };
-        return;
+          return;
+        }
+      } catch (err) {
+        console.error('Image processing error:', err);
       }
+    }
+
+    if (f.type.startsWith('video/') && f.size <= 8 * 1024 * 1024) {
+      const reader = new FileReader();
+      reader.readAsDataURL(f);
+      reader.onloadend = () => {
+        const base64Data = reader.result as string;
+        saveMediaBlob(f.name, base64Data);
+        sendMessage(base64Data);
+      };
+      return;
     }
 
     if (targetUsername) {
