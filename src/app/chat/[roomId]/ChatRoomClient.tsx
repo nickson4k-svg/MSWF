@@ -328,7 +328,10 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       }
     }
 
+    const msgId = crypto.randomUUID();
+
     const messagePayload = {
+      id: msgId,
       text: payloadText,
       roomId: normalizedRoomId,
       sender: username,
@@ -338,7 +341,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
     // Optimistic local state update so sender sees the message/photo instantly
     const tempMsg: Message = {
-      id: crypto.randomUUID(),
+      id: msgId,
       roomId: normalizedRoomId,
       text: text, // Show unencrypted / raw base64 locally
       sender: username,
@@ -681,8 +684,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
             img.onload = () => {
               let width = img.width;
               let height = img.height;
-              const maxWidth = 1920;
-              const maxHeight = 1920;
+              const maxWidth = 1600;
+              const maxHeight = 1600;
               if (width > maxWidth || height > maxHeight) {
                 if (width > height) {
                   height = Math.round((height * maxWidth) / width);
@@ -702,7 +705,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
               }
               ctx.drawImage(img, 0, 0, width, height);
               const mimeType = f.type === 'image/png' ? 'image/png' : 'image/jpeg';
-              resolve(canvas.toDataURL(mimeType, 0.85));
+              resolve(canvas.toDataURL(mimeType, 0.80));
             };
             img.onerror = () => resolve((e.target?.result as string) || '');
           };

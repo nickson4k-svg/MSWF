@@ -6,6 +6,7 @@ export const authSchema = z.object({
 });
 
 export const sendMessageSchema = z.object({
+  id: z.string().optional(),
   text: z.string().min(1, 'Повідомлення не може бути порожнім').max(35000000, 'Занадто довге повідомлення'),
   roomId: z.string().min(1, 'Обов\'язковий roomId'),
   replyTo: z.string().optional(),

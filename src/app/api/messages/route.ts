@@ -31,11 +31,11 @@ export async function POST(req: Request) {
     if (!parseResult.success) {
       return NextResponse.json({ error: parseResult.error.issues[0]?.message || 'Invalid request' }, { status: 400 });
     }
-    const { text, roomId: rawRoomId, replyTo, ttl } = parseResult.data;
+    const { id: clientMsgId, text, roomId: rawRoomId, replyTo, ttl } = parseResult.data;
     const roomId = normalizeRoomId(rawRoomId);
 
     const message: Record<string, unknown> = {
-      id: crypto.randomUUID(),
+      id: clientMsgId || crypto.randomUUID(),
       text,
       roomId,
       sender,

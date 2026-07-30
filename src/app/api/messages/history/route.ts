@@ -38,10 +38,13 @@ export async function GET(req: Request) {
 
     // Fetch last 500 recent messages from Redis
     const messagesStrs = await redis.lrange(`messages:${roomId}`, -500, -1);
-    const messages = messagesStrs.map(str => JSON.parse(str));
+    const messages = messagesStrs.map(str => {
+      if (typeof str === 'string') {
+        try { return JSON.parse(str); } catch { return str; }
+      }
+      return str;
+    });
 
-    // Reverse them since lrange returns newest first (if we lpush)
-    // We will assume rpush, so they are oldest first
     return NextResponse.json(messages);
   } catch (error) {
     console.error('Error fetching history:', error);
