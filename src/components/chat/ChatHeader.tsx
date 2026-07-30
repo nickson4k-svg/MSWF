@@ -1,7 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import { ArrowLeft, Palette, Video as VideoIcon } from 'lucide-react';
+import { ArrowLeft, Palette, Video as VideoIcon, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -17,6 +17,7 @@ interface ChatHeaderProps {
   onBack: () => void;
   onToggleThemePicker: () => void;
   onStartCall?: (target: string) => void;
+  onClearChat?: () => void;
 }
 
 export const ChatHeader = memo(function ChatHeader({
@@ -28,6 +29,7 @@ export const ChatHeader = memo(function ChatHeader({
   onBack,
   onToggleThemePicker,
   onStartCall,
+  onClearChat,
 }: ChatHeaderProps) {
   const otherUser = roomId.startsWith('private-')
     ? roomId.replace('private-', '').split('-').find((u) => u !== username)
@@ -73,7 +75,7 @@ export const ChatHeader = memo(function ChatHeader({
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-2 sm:gap-4 relative">
+      <div className="flex items-center gap-1.5 sm:gap-3 relative">
         <Button
           variant="ghost"
           size="icon"
@@ -92,6 +94,17 @@ export const ChatHeader = memo(function ChatHeader({
             title="Відеодзвінок"
           >
             <VideoIcon className="w-5 h-5" />
+          </Button>
+        )}
+        {onClearChat && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClearChat}
+            className="rounded-full hover:bg-red-950/40 text-red-400/80 hover:text-red-400 transition-colors"
+            title="Очистити чат"
+          >
+            <Trash2 className="w-5 h-5" />
           </Button>
         )}
         <ThemeToggle />

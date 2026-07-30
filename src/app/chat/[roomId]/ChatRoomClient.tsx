@@ -25,7 +25,7 @@ import { LinkPreview } from '@/components/chat/LinkPreview';
 import { Timer, Clock } from 'lucide-react';
 import { generateKeyFromRoomId, encryptText, decryptText } from '@/lib/e2ee';
 import { showDesktopFloatingWindow } from '@/lib/notifications';
-import { getCachedMessages, cacheMessages, cleanExpiredMessages, getRoomTheme, saveRoomTheme, getRoomShader, saveMediaBlob, getMediaBlobsMap } from '@/lib/db';
+import { getCachedMessages, cacheMessages, cleanExpiredMessages, clearRoomMessages, getRoomTheme, saveRoomTheme, getRoomShader, saveMediaBlob, getMediaBlobsMap } from '@/lib/db';
 import { ShaderBackground, type ShaderType } from '@/components/ui/ShaderBackground';
 import { GemSmoke } from '@paper-design/shaders-react';
 import { ChatHeader } from '@/components/chat/ChatHeader';
@@ -227,6 +227,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [deleteConfirmMsg, setDeleteConfirmMsg] = useState<Message | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isClearingChat, setIsClearingChat] = useState(false);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [toastNotif, setToastNotif] = useState<{ sender: string; text: string } | null>(null);
 
@@ -450,6 +452,23 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       body: JSON.stringify({ action: 'delete', msgId: msg.id, roomId: normalizedRoomId })
     }).catch(err => console.error('Delete failed:', err));
   }, [deleteConfirmMsg, normalizedRoomId]);
+
+  const confirmClearChat = useCallback(() => {
+    setShowClearConfirm(false);
+    setIsClearingChat(true);
+
+    fetch('/api/messages/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'clear_chat', roomId: normalizedRoomId })
+    }).catch(err => console.error('Clear chat failed:', err));
+
+    setTimeout(() => {
+      setMessages([]);
+      clearRoomMessages(normalizedRoomId);
+      setIsClearingChat(false);
+    }, 600);
+  }, [normalizedRoomId]);
 
   const handleBack = useCallback(() => {
     router.push('/');
@@ -994,7 +1013,16 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     const userChannel = client.subscribe(userChannelName);
     const userChannelRaw = client.subscribe(userChannelRawName);
 
-    const handleMessageAction = (data: { action: string; msgId: string; msg: Message }) => {
+    const handleMessageAction = (data: { action: string; msgId?: string; msg?: Message }) => {
+      if (data.action === 'clear_chat') {
+        setIsClearingChat(true);
+        setTimeout(() => {
+          setMessages([]);
+          clearRoomMessages(normalizedRoomId);
+          setIsClearingChat(false);
+        }, 600);
+        return;
+      }
       if (data.action === 'delete' || data.action === 'edit') {
         const updatedMsg: Message = data.msg ? {
           ...data.msg,
@@ -1332,6 +1360,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           onBack={handleBack}
           onToggleThemePicker={handleToggleThemePicker}
           onStartCall={startCall}
+          onClearChat={() => setShowClearConfirm(true)}
         />
         {showThemePicker && (
           <ThemePickerModal
@@ -1348,10 +1377,20 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       {/* Chat Area */}
       <div 
         ref={chatAreaRef} 
-        className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-1 scroll-smooth"
+        className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-1 scroll-smooth transition-all duration-500 relative ${
+          isClearingChat ? 'opacity-0 scale-95 blur-md -translate-y-4 duration-500 pointer-events-none' : ''
+        }`}
         onClick={() => setContextMenu(null)}
         onScroll={handleChatScroll}
       >
+        {isClearingChat && (
+          <div className="absolute inset-0 z-40 bg-zinc-950/60 backdrop-blur-md flex flex-col items-center justify-center space-y-3 animate-in fade-in duration-200">
+            <div className="w-14 h-14 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shadow-2xl animate-bounce">
+              <Trash2 className="w-7 h-7" />
+            </div>
+            <p className="text-sm font-semibold text-zinc-200 animate-pulse">Очищення історії чату...</p>
+          </div>
+        )}
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-4 animate-fade-in opacity-50">
             <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
@@ -1557,6 +1596,45 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
               className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 active:scale-95 text-white font-medium text-sm shadow-lg shadow-red-600/25 transition-all"
             >
               Видалити
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Custom Clear Chat Confirmation Modal */}
+    {showClearConfirm && (
+      <div 
+        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+        onClick={() => setShowClearConfirm(false)}
+      >
+        <div 
+          className="bg-zinc-900/95 border border-zinc-800 p-6 rounded-2xl shadow-2xl max-w-sm w-full space-y-5 animate-in zoom-in-95 duration-100 text-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mx-auto shadow-inner">
+            <Trash2 className="w-6 h-6" />
+          </div>
+          
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold text-zinc-100">Очистити історію чату?</h3>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Цю дію неможливо скасувати. Всі повідомлення цієї кімнати будуть видалені для всіх учасників.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <button 
+              onClick={() => setShowClearConfirm(false)}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-zinc-300 font-medium text-sm transition-all"
+            >
+              Скасувати
+            </button>
+            <button 
+              onClick={confirmClearChat}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 active:scale-95 text-white font-medium text-sm shadow-lg shadow-red-600/25 transition-all"
+            >
+              Очистити
             </button>
           </div>
         </div>

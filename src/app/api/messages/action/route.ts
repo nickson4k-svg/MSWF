@@ -18,12 +18,38 @@ export async function POST(req: Request) {
     const sender = payload.sub;
     const { action, msgId, roomId: rawRoomId, text } = await req.json();
 
-    if (!msgId || !rawRoomId || !action) {
+    if (!rawRoomId || !action) {
       return new NextResponse('Missing fields', { status: 400 });
     }
     const roomId = normalizeRoomId(rawRoomId);
-
     const key = `messages:${roomId}`;
+
+    if (action === 'clear_chat') {
+      const isParticipant = roomId.startsWith('private-') ? roomId.includes(sender) : true;
+      if (!isParticipant) return new NextResponse('Forbidden', { status: 403 });
+
+      await redis.del(key);
+
+      const pusherServer = getPusherServer();
+      await pusherServer.trigger(`room-${sanitizeChannelName(roomId)}`, 'message-action', {
+        action: 'clear_chat',
+        roomId
+      });
+
+      if (roomId.startsWith('private-')) {
+        const parts = roomId.replace('private-', '').split('-');
+        for (const p of parts) {
+          await pusherServer.trigger(`user-${p}`, 'message-action', { action: 'clear_chat', roomId });
+          await pusherServer.trigger(`user-${sanitizeChannelName(p)}`, 'message-action', { action: 'clear_chat', roomId });
+        }
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    if (!msgId) {
+      return new NextResponse('Missing msgId', { status: 400 });
+    }
     const msgsStr = await redis.lrange(key, 0, -1);
     const idx = msgsStr.findIndex(str => JSON.parse(str).id === msgId);
 

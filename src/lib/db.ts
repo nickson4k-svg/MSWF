@@ -81,6 +81,15 @@ export async function cleanExpiredMessages() {
   }
 }
 
+/** Clear all cached messages for a specific room */
+export async function clearRoomMessages(roomId: string) {
+  try {
+    await db.messages.where('roomId').equals(roomId).delete();
+  } catch (err) {
+    console.warn('Failed to clear room messages:', err);
+  }
+}
+
 export async function saveRoomTheme(roomId: string, theme: string) {
   try {
     const current = await db.settings.get(roomId);
