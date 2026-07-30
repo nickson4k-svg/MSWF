@@ -748,9 +748,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      initiateTransfer(file, targetUsername, roomId);
+      handleSendFile(file);
     }
-  }, [targetUsername, roomId, initiateTransfer]);
+  }, [targetUsername, handleSendFile]);
 
   useEffect(() => {
     let mounted = true;

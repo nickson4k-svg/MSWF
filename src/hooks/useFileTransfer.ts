@@ -186,7 +186,6 @@ export const useFileTransfer = (
         },
         (blobUrl) => {
           updateTransferStatus(id, 'completed', 100, blobUrl);
-          if (onTransferComplete) onTransferComplete(fileMeta);
 
           fetch(blobUrl)
             .then(res => res.blob())
