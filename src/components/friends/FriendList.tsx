@@ -81,8 +81,14 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
   }, []);
 
   useEffect(() => {
-    requestNotificationPermission();
-    const handleGesture = () => requestNotificationPermission();
+    requestNotificationPermission().then(res => {
+      if (res) setNotifPermission(res);
+    });
+    const handleGesture = () => {
+      requestNotificationPermission().then(res => {
+        if (res) setNotifPermission(res);
+      });
+    };
     window.addEventListener('click', handleGesture, { once: true });
     return () => window.removeEventListener('click', handleGesture);
   }, []);
@@ -233,6 +239,15 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
           onClick={async () => {
             const res = await requestNotificationPermission();
             setNotifPermission(res);
+            if (res === 'granted') {
+              showDesktopFloatingWindow(
+                'Система',
+                '🔔 Сповіщення увімкнено! Ви отримуватимете сповіщення про нові повідомлення.',
+                () => {}
+              );
+            } else if (res === 'denied') {
+              alert('Сповіщення заблоковано в налаштуваннях браузера. Натисніть на значок замка в адресному рядку браузера, щоб дозволити сповіщення.');
+            }
           }}
           className="mx-2 my-2 p-2.5 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-center justify-between cursor-pointer hover:bg-blue-500/20 transition-all text-xs text-blue-300 shadow-sm"
         >
@@ -240,7 +255,12 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
             <Bell className="w-4 h-4 text-blue-400 flex-shrink-0 animate-bounce" />
             <span>Увімкнути сповіщення на робочому столі</span>
           </div>
-          <span className="font-semibold text-[11px] underline ml-2 flex-shrink-0">Дозволити</span>
+          <button 
+            type="button"
+            className="font-semibold text-[11px] bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded-lg shadow transition-colors flex-shrink-0"
+          >
+            Дозволити
+          </button>
         </div>
       )}
       
