@@ -1,7 +1,7 @@
 import { useRef, useSyncExternalStore, memo, useState, useMemo } from 'react';
 import { FileTransfer } from '@/hooks/useFileTransfer';
 import { FileTransferItem } from './FileTransferItem';
-import { Plus, Download, File, Image as ImageIcon, FileText, Film, Music, Box, ExternalLink, Link as LinkIcon, LayoutGrid } from 'lucide-react';
+import { Plus, Download, File, Image as ImageIcon, FileText, Film, Music, Box, ExternalLink, Link as LinkIcon, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GemSmoke } from '@paper-design/shaders-react';
 import { formatBytes } from '@/lib/webrtc';
@@ -41,75 +41,63 @@ const getFileIcon = (mimeType: string) => {
   return <File className="w-4 h-4 text-zinc-400 flex-shrink-0" />;
 };
 
-const isMediaItem = (item: RoomFileItem) => {
-  const mime = item.mimeType.toLowerCase();
-  const name = item.fileName.toLowerCase();
-  return (
-    mime.startsWith('image/') ||
-    mime.startsWith('video/') ||
-    /\.(png|jpg|jpeg|gif|webp|svg|mp4|webm|mov|mkv|avi)$/i.test(name)
-  );
-};
-
-const isMusicItem = (item: RoomFileItem) => {
-  const mime = item.mimeType.toLowerCase();
-  const name = item.fileName.toLowerCase();
-  return (
-    mime.startsWith('audio/') ||
-    /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(name) ||
-    name.includes('Голосове')
-  );
-};
-
-const isDocumentItem = (item: RoomFileItem) => {
-  return !isMediaItem(item) && !isMusicItem(item);
-};
+interface FileTransferSidebarProps {
+  transfers: FileTransfer[];
+  roomFiles: RoomFileItem[];
+  messages?: Message[];
+  currentUsername?: string;
+  onCancelTransfer: (id: string) => void;
+  onSendFile: (file: File) => void;
+  isFriendOnline: boolean;
+  onScrollToMessage?: (msgId: string) => void;
+}
 
 export const FileTransferSidebar = memo(function FileTransferSidebar({
   transfers,
-  roomFiles = [],
+  roomFiles,
   messages = [],
   currentUsername = '',
-  onSendFile,
   onCancelTransfer,
+  onSendFile,
   isFriendOnline,
-  onScrollToMessage
-}: {
-  transfers: FileTransfer[];
-  roomFiles?: RoomFileItem[];
-  messages?: Message[];
-  currentUsername?: string;
-  onSendFile: (file: File) => void;
-  onCancelTransfer: (id: string) => void;
-  isFriendOnline: boolean;
-  onScrollToMessage?: (msgId: string) => void;
-}) {
+  onScrollToMessage,
+}: FileTransferSidebarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const hasActiveTransfers = transfers.some(t => t.status === 'transferring' || t.status === 'connecting');
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      onSendFile(e.target.files[0]);
+    const file = e.target.files?.[0];
+    if (file) {
+      onSendFile(file);
       e.target.value = '';
     }
   };
 
-  // Categorize room files
-  const mediaItems = useMemo(() => roomFiles.filter(isMediaItem), [roomFiles]);
-  const musicItems = useMemo(() => roomFiles.filter(isMusicItem), [roomFiles]);
-  const fileItems = useMemo(() => roomFiles.filter(isDocumentItem), [roomFiles]);
+  // Categorized files
+  const mediaItems = useMemo(() => {
+    return roomFiles.filter(f => f.mimeType.startsWith('image/') || f.mimeType.startsWith('video/'));
+  }, [roomFiles]);
+
+  const musicItems = useMemo(() => {
+    return roomFiles.filter(f => f.mimeType.startsWith('audio/'));
+  }, [roomFiles]);
+
+  const fileItems = useMemo(() => {
+    return roomFiles.filter(f => !f.mimeType.startsWith('image/') && !f.mimeType.startsWith('video/') && !f.mimeType.startsWith('audio/'));
+  }, [roomFiles]);
 
   // Extract links from messages
   const links = useMemo<ExtractedLink[]>(() => {
     const list: ExtractedLink[] = [];
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urlRegex = /https?:\/\/[^\s<]+/g;
 
     messages.forEach(msg => {
       if (msg.isDeleted) return;
-      if (msg.text.startsWith('data:') || msg.text.startsWith('{"type":')) return;
+      if (msg.text.startsWith('data:')) return;
 
       const matches = msg.text.match(urlRegex);
       if (matches) {
@@ -136,7 +124,7 @@ export const FileTransferSidebar = memo(function FileTransferSidebar({
   return (
     <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800/50 rounded-2xl overflow-hidden flex flex-col h-full relative">
       {/* Header */}
-      <div className="p-4 border-b border-zinc-800 flex justify-between items-center relative overflow-hidden">
+      <div className="p-3.5 border-b border-zinc-800 flex justify-between items-center relative overflow-hidden">
         {mounted && hasActiveTransfers && (
           <div className="absolute inset-0 z-0 opacity-20 pointer-events-none overflow-hidden">
             <GemSmoke
@@ -160,16 +148,16 @@ export const FileTransferSidebar = memo(function FileTransferSidebar({
           </div>
         )}
 
-        <div className="relative z-10">
-          <h2 className="font-semibold text-sm text-zinc-100 flex items-center gap-2">
-            <span>Медіа та Файли</span>
+        <div className="relative z-10 min-w-0 flex-1">
+          <h2 className="font-semibold text-xs sm:text-sm text-zinc-100 flex items-center gap-1.5 truncate">
+            <span>Матеріали кімнати</span>
             {hasActiveTransfers ? (
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping flex-shrink-0" />
             ) : totalItemCount > 0 ? (
-              <span className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded-full border border-zinc-700">{totalItemCount}</span>
+              <span className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded-full border border-zinc-700 flex-shrink-0">{totalItemCount}</span>
             ) : null}
           </h2>
-          <p className="text-[11px] text-zinc-500 font-medium">Сховище матеріалів кімнати</p>
+          <p className="text-[10px] text-zinc-500 font-medium truncate">Сховище файлів та медіа</p>
         </div>
 
         <input 
@@ -179,16 +167,46 @@ export const FileTransferSidebar = memo(function FileTransferSidebar({
           onChange={handleFileSelect} 
         />
 
-        <Button
-          size="sm"
-          className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs gap-1 shadow-lg shadow-emerald-950/40 relative z-10 border border-emerald-500/30"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!isFriendOnline}
-          title={isFriendOnline ? "Надіслати файл" : "Співрозмовник офлайн"}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Надіслати</span>
-        </Button>
+        <div className="flex items-center gap-1.5 z-10 flex-shrink-0">
+          {/* View mode toggle (Grid blocks vs List) */}
+          <div className="flex items-center bg-zinc-950/80 p-0.5 rounded-lg border border-zinc-800/80">
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              title="Блоками (Сітка)"
+              className={`p-1.5 rounded-md transition-all ${
+                viewMode === 'grid' 
+                  ? 'bg-zinc-800 text-emerald-400 font-bold border border-emerald-500/30 shadow-sm' 
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              title="Списком"
+              className={`p-1.5 rounded-md transition-all ${
+                viewMode === 'list' 
+                  ? 'bg-zinc-800 text-emerald-400 font-bold border border-emerald-500/30 shadow-sm' 
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <Button
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs gap-1 shadow-lg shadow-emerald-950/40 border border-emerald-500/30 px-2.5 h-8"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!isFriendOnline}
+            title={isFriendOnline ? "Надіслати файл" : "Співрозмовник офлайн"}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Файл</span>
+          </Button>
+        </div>
       </div>
 
       {/* Filter Tabs Bar (5 Columns Grid - 100% Width Fit) */}
@@ -225,7 +243,7 @@ export const FileTransferSidebar = memo(function FileTransferSidebar({
         ))}
       </div>
 
-      {/* Filtered Content List */}
+      {/* Filtered Content List / Grid */}
       <div className="flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-14rem)]">
         {activeTab === 'all' && (
           <>
@@ -241,9 +259,11 @@ export const FileTransferSidebar = memo(function FileTransferSidebar({
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400 px-1">
                       Активні передачі ({transfers.length})
                     </span>
-                    {transfers.map(t => (
-                      <FileTransferItem key={t.id} transfer={t} onCancel={onCancelTransfer} />
-                    ))}
+                    <div className="space-y-2">
+                      {transfers.map(t => (
+                        <FileTransferItem key={t.id} transfer={t} onCancel={onCancelTransfer} />
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -252,9 +272,11 @@ export const FileTransferSidebar = memo(function FileTransferSidebar({
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 px-1">
                       Історія файлів ({roomFiles.length})
                     </span>
-                    {roomFiles.map(file => (
-                      <FileCard key={file.id} file={file} onScrollToMessage={onScrollToMessage} />
-                    ))}
+                    <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-2" : "space-y-2"}>
+                      {roomFiles.map(file => (
+                        <FileCard key={file.id} file={file} onScrollToMessage={onScrollToMessage} viewMode={viewMode} />
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -263,9 +285,11 @@ export const FileTransferSidebar = memo(function FileTransferSidebar({
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-400 px-1">
                       Посилання ({links.length})
                     </span>
-                    {links.map(link => (
-                      <LinkCard key={link.id} link={link} />
-                    ))}
+                    <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-2" : "space-y-2"}>
+                      {links.map(link => (
+                        <LinkCard key={link.id} link={link} viewMode={viewMode} />
+                      ))}
+                    </div>
                   </div>
                 )}
               </>
@@ -274,49 +298,57 @@ export const FileTransferSidebar = memo(function FileTransferSidebar({
         )}
 
         {activeTab === 'media' && (
-          <div className="space-y-2">
+          <div>
             {mediaItems.length === 0 ? (
               <EmptyState message="Зображення та відео відсутні" />
             ) : (
-              mediaItems.map(file => (
-                <FileCard key={file.id} file={file} onScrollToMessage={onScrollToMessage} />
-              ))
+              <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-2" : "space-y-2"}>
+                {mediaItems.map(file => (
+                  <FileCard key={file.id} file={file} onScrollToMessage={onScrollToMessage} viewMode={viewMode} />
+                ))}
+              </div>
             )}
           </div>
         )}
 
         {activeTab === 'files' && (
-          <div className="space-y-2">
+          <div>
             {fileItems.length === 0 ? (
               <EmptyState message="Документи та архіви відсутні" />
             ) : (
-              fileItems.map(file => (
-                <FileCard key={file.id} file={file} onScrollToMessage={onScrollToMessage} />
-              ))
+              <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-2" : "space-y-2"}>
+                {fileItems.map(file => (
+                  <FileCard key={file.id} file={file} onScrollToMessage={onScrollToMessage} viewMode={viewMode} />
+                ))}
+              </div>
             )}
           </div>
         )}
 
         {activeTab === 'music' && (
-          <div className="space-y-2">
+          <div>
             {musicItems.length === 0 ? (
               <EmptyState message="Музика та голосові відсутні" />
             ) : (
-              musicItems.map(file => (
-                <FileCard key={file.id} file={file} onScrollToMessage={onScrollToMessage} />
-              ))
+              <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-2" : "space-y-2"}>
+                {musicItems.map(file => (
+                  <FileCard key={file.id} file={file} onScrollToMessage={onScrollToMessage} viewMode={viewMode} />
+                ))}
+              </div>
             )}
           </div>
         )}
 
         {activeTab === 'links' && (
-          <div className="space-y-2">
+          <div>
             {links.length === 0 ? (
               <EmptyState message="Надіслані посилання відсутні" />
             ) : (
-              links.map(link => (
-                <LinkCard key={link.id} link={link} />
-              ))
+              <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-2" : "space-y-2"}>
+                {links.map(link => (
+                  <LinkCard key={link.id} link={link} viewMode={viewMode} />
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -325,7 +357,78 @@ export const FileTransferSidebar = memo(function FileTransferSidebar({
   );
 });
 
-function FileCard({ file, onScrollToMessage }: { file: RoomFileItem; onScrollToMessage?: (msgId: string) => void }) {
+function FileCard({ 
+  file, 
+  onScrollToMessage, 
+  viewMode = 'grid' 
+}: { 
+  file: RoomFileItem; 
+  onScrollToMessage?: (msgId: string) => void;
+  viewMode?: 'grid' | 'list';
+}) {
+  const isImage = file.mimeType.startsWith('image/');
+  const isVideo = file.mimeType.startsWith('video/');
+  const hasThumbnail = (isImage || isVideo) && file.downloadData;
+
+  if (viewMode === 'grid') {
+    return (
+      <div className="bg-zinc-900/80 border border-zinc-800/80 rounded-xl p-2.5 flex flex-col justify-between gap-2 hover:bg-zinc-800/80 hover:border-zinc-700/80 transition-all group relative min-h-[110px] shadow-sm">
+        {/* Top row: Icon/Thumbnail + Action */}
+        <div className="flex items-start justify-between gap-1">
+          <div className="w-9 h-9 rounded-lg bg-zinc-800 border border-zinc-700/60 flex items-center justify-center flex-shrink-0 overflow-hidden relative">
+            {hasThumbnail ? (
+              isImage ? (
+                <img src={file.downloadData} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <video src={file.downloadData} className="w-full h-full object-cover" />
+              )
+            ) : (
+              getFileIcon(file.mimeType)
+            )}
+          </div>
+
+          <div className="flex items-center">
+            {file.downloadData ? (
+              <a 
+                href={file.downloadData} 
+                download={file.fileName}
+                className="p-1.5 rounded-lg hover:bg-zinc-700/80 text-zinc-400 hover:text-emerald-400 transition-colors"
+                title="Завантажити"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </a>
+            ) : onScrollToMessage ? (
+              <button
+                onClick={() => onScrollToMessage(file.id)}
+                className="p-1.5 rounded-lg hover:bg-zinc-700/80 text-zinc-400 hover:text-blue-400 transition-colors"
+                title="Перейти до повідомлення"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Content middle */}
+        <div className="min-w-0 flex-1">
+          <p className="text-zinc-200 font-semibold text-xs truncate leading-tight" title={file.fileName}>
+            {file.fileName}
+          </p>
+          <p className="text-[10px] text-zinc-400 mt-0.5 font-normal">
+            {formatBytes(file.fileSize)}
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between text-[9px] text-zinc-500 pt-1.5 border-t border-zinc-800/60">
+          <span className="truncate max-w-[65px] font-medium">{file.sender}</span>
+          <span className="font-mono">{format(new Date(file.timestamp), 'HH:mm')}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // List view (original)
   return (
     <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-2.5 flex items-center justify-between gap-2.5 hover:bg-zinc-800/60 transition-colors group">
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -368,7 +471,52 @@ function FileCard({ file, onScrollToMessage }: { file: RoomFileItem; onScrollToM
   );
 }
 
-function LinkCard({ link }: { link: ExtractedLink }) {
+function LinkCard({ 
+  link, 
+  viewMode = 'grid' 
+}: { 
+  link: ExtractedLink; 
+  viewMode?: 'grid' | 'list';
+}) {
+  if (viewMode === 'grid') {
+    return (
+      <div className="bg-zinc-900/80 border border-zinc-800/80 rounded-xl p-2.5 flex flex-col justify-between gap-2 hover:bg-zinc-800/80 hover:border-zinc-700/80 transition-all group relative min-h-[110px] shadow-sm">
+        {/* Top bar */}
+        <div className="flex items-start justify-between gap-1">
+          <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 flex-shrink-0 border border-blue-500/20">
+            <LinkIcon className="w-4 h-4" />
+          </div>
+          <a 
+            href={link.url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="p-1.5 rounded-lg hover:bg-zinc-700/80 text-zinc-400 hover:text-blue-400 transition-colors"
+            title="Відкрити посилання"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+
+        {/* Content middle */}
+        <div className="min-w-0 flex-1">
+          <p className="text-zinc-200 font-semibold text-xs truncate leading-tight" title={link.url}>
+            {link.domain}
+          </p>
+          <p className="text-[10px] text-zinc-400 truncate opacity-80 mt-0.5" title={link.url}>
+            {link.url}
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between text-[9px] text-zinc-500 pt-1.5 border-t border-zinc-800/60">
+          <span className="truncate max-w-[65px] font-medium">{link.sender}</span>
+          <span className="font-mono">{format(new Date(link.timestamp), 'HH:mm')}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // List view (original)
   return (
     <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-2.5 flex items-center justify-between gap-2.5 hover:bg-zinc-800/60 transition-colors group">
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
