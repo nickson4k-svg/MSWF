@@ -6,15 +6,15 @@ export const authSchema = z.object({
 });
 
 export const sendMessageSchema = z.object({
-  text: z.string().min(1, 'Повідомлення не може бути порожнім').max(10000, 'Занадто довге повідомлення'),
+  text: z.string().min(1, 'Повідомлення не може бути порожнім').max(35000000, 'Занадто довге повідомлення'),
   roomId: z.string().min(1, 'Обов\'язковий roomId'),
   replyTo: z.string().optional(),
   ttl: z.number().int().min(0).max(86400).optional(),
 });
 
 export const messageActionSchema = z.object({
-  action: z.enum(['edit', 'delete']),
-  msgId: z.string().min(1),
+  action: z.enum(['edit', 'delete', 'clear_chat']),
+  msgId: z.string().optional(),
   roomId: z.string().min(1),
   text: z.string().optional(),
 });

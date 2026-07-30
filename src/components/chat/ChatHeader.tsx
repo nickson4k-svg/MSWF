@@ -1,7 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import { ArrowLeft, Palette, Video as VideoIcon, Trash2 } from 'lucide-react';
+import { ArrowLeft, Palette, Video as VideoIcon, BrushCleaning } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -104,7 +104,7 @@ export const ChatHeader = memo(function ChatHeader({
             className="rounded-full hover:bg-red-950/40 text-red-400/80 hover:text-red-400 transition-colors"
             title="Очистити чат"
           >
-            <Trash2 className="w-5 h-5" />
+            <BrushCleaning className="w-5 h-5" />
           </Button>
         )}
         <ThemeToggle />

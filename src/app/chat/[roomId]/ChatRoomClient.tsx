@@ -22,7 +22,7 @@ import { useCall } from '@/hooks/useCall';
 import { CallScreen } from '@/components/call/CallScreen';
 import { parseMarkdown } from '@/lib/markdown';
 import { LinkPreview } from '@/components/chat/LinkPreview';
-import { Timer, Clock } from 'lucide-react';
+import { Timer, Clock, BrushCleaning } from 'lucide-react';
 import { generateKeyFromRoomId, encryptText, decryptText } from '@/lib/e2ee';
 import { showDesktopFloatingWindow } from '@/lib/notifications';
 import { getCachedMessages, cacheMessages, cleanExpiredMessages, clearRoomMessages, getRoomTheme, saveRoomTheme, getRoomShader, saveMediaBlob, getMediaBlobsMap } from '@/lib/db';
@@ -1390,7 +1390,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         {isClearingChat && (
           <div className="absolute inset-0 z-40 bg-zinc-950/60 backdrop-blur-md flex flex-col items-center justify-center space-y-3 animate-in fade-in duration-200">
             <div className="w-14 h-14 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shadow-2xl animate-bounce">
-              <Trash2 className="w-7 h-7" />
+              <BrushCleaning className="w-7 h-7" />
             </div>
             <p className="text-sm font-semibold text-zinc-200 animate-pulse">Очищення історії чату...</p>
           </div>
@@ -1617,7 +1617,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           onClick={(e) => e.stopPropagation()}
         >
           <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mx-auto shadow-inner">
-            <Trash2 className="w-6 h-6" />
+            <BrushCleaning className="w-6 h-6" />
           </div>
           
           <div className="space-y-1">
