@@ -306,6 +306,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  // Stable ref for sendMessage dependencies to avoid re-creating callbacks
+  const messagesRef = useRef(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  const sendMessageRef = useRef<(text: string, isVoice?: boolean) => Promise<void>>(null!);
+
   const sendMessage = async (text: string, isVoice = false) => {
     if (!text.trim() || !username) return;
     
@@ -368,9 +374,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       console.error('Failed to send:', err);
     }
   };
-  const isSameDay = (d1: Date, d2: Date) => {
-    return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
-  };
+  // isSameDay is imported from date-fns (line 13), no local shadowed copy needed
 
   const getDateLabel = (date: Date) => {
     if (isToday(date)) return 'Сьогодні';
@@ -378,9 +382,16 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     return format(date, 'dd.MM.yyyy');
   };
 
-  const getReplyMessage = useCallback((replyId: string) => {
-    return messages.find(m => m.id === replyId) || null;
+  // O(1) Map lookup instead of O(n) find for reply messages
+  const messagesMap = useMemo(() => {
+    const map = new Map<string, Message>();
+    messages.forEach(m => map.set(m.id, m));
+    return map;
   }, [messages]);
+
+  const getReplyMessage = useCallback((replyId: string) => {
+    return messagesMap.get(replyId) || null;
+  }, [messagesMap]);
 
   const scrollToMessage = useCallback((msgId: string) => {
     const el = document.getElementById(`msg-${msgId}`);
@@ -406,14 +417,14 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   }, []);
 
   const handleReaction = useCallback((msgId: string, emoji: string) => {
-    const targetMsg = messages.find(m => m.id === msgId);
+    const targetMsg = messagesRef.current.find(m => m.id === msgId);
     const currentEmoji = targetMsg?.reactions?.[username];
     fetch('/api/messages/react', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ msgId, roomId: normalizedRoomId, emoji: currentEmoji === emoji ? '' : emoji })
     });
-  }, [messages, username, normalizedRoomId]);
+  }, [username, normalizedRoomId]);
 
   const handleReply = useCallback((msg: Message) => {
     setReplyTo(msg);
@@ -507,17 +518,20 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [activeMediaIndex, setActiveMediaIndex] = useState<number | null>(null);
   const [cachedMediaBlobs, setCachedMediaBlobs] = useState<Record<string, string>>({});
 
+  // Load media blobs once at mount (not on every message/transfer change)
   useEffect(() => {
     getMediaBlobsMap().then(map => setCachedMediaBlobs(map));
-  }, [messages.length, transfers.length]);
+  }, [normalizedRoomId]);
 
-  const roomMediaList = useMemo<MediaItem[]>(() => {
-    const list: MediaItem[] = [];
+  // Single-pass scan for both roomMediaList and roomFiles
+  const { roomMediaList, roomFiles } = useMemo(() => {
+    const media: MediaItem[] = [];
+    const files: RoomFileItem[] = [];
     messages.forEach(msg => {
       if (msg.isDeleted) return;
 
       if (msg.text.startsWith('data:image/')) {
-        list.push({
+        media.push({
           id: msg.id,
           url: msg.text,
           type: 'image',
@@ -525,10 +539,21 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           sender: msg.sender,
           timestamp: msg.timestamp,
         });
+        const mime = msg.text.substring(5, msg.text.indexOf(';'));
+        const ext = mime.split('/')[1] || 'bin';
+        files.push({
+          id: msg.id,
+          fileName: `Файл_${format(new Date(msg.timestamp), 'HHmm')}.${ext}`,
+          fileSize: Math.round((msg.text.length * 3) / 4),
+          mimeType: mime,
+          sender: msg.sender === username ? 'Ви' : msg.sender,
+          timestamp: msg.timestamp,
+          downloadData: msg.text,
+        });
       } else if (msg.text.startsWith('data:video/')) {
         const mime = msg.text.substring(5, msg.text.indexOf(';'));
         const ext = mime.split('/')[1] || 'mp4';
-        list.push({
+        media.push({
           id: msg.id,
           url: msg.text,
           type: 'video',
@@ -536,29 +561,70 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           sender: msg.sender,
           timestamp: msg.timestamp,
         });
+        files.push({
+          id: msg.id,
+          fileName: `Файл_${format(new Date(msg.timestamp), 'HHmm')}.${ext}`,
+          fileSize: Math.round((msg.text.length * 3) / 4),
+          mimeType: mime,
+          sender: msg.sender === username ? 'Ви' : msg.sender,
+          timestamp: msg.timestamp,
+          downloadData: msg.text,
+        });
       } else if (msg.text.startsWith('{"type":"file-transfer-meta"')) {
         try {
           const meta = JSON.parse(msg.text);
-          const mime = meta.mimeType || '';
-          if (mime.startsWith('image/') || mime.startsWith('video/')) {
-            const trBlob = transfers.find(t => t.fileMeta.fileName === meta.fileName && t.blobUrl)?.blobUrl;
-            const mediaUrl = trBlob || cachedMediaBlobs[meta.fileName];
-            if (mediaUrl) {
-              list.push({
-                id: msg.id,
-                url: mediaUrl,
-                type: mime.startsWith('image/') ? 'image' : 'video',
-                fileName: meta.fileName,
-                sender: msg.sender,
-                timestamp: msg.timestamp,
-              });
+          if (meta.fileName) {
+            files.push({
+              id: msg.id,
+              fileName: meta.fileName,
+              fileSize: meta.fileSize || 0,
+              mimeType: meta.mimeType || 'application/octet-stream',
+              sender: msg.sender === username ? 'Ви' : msg.sender,
+              timestamp: msg.timestamp,
+            });
+            const mimeType = meta.mimeType || '';
+            if (mimeType.startsWith('image/') || mimeType.startsWith('video/')) {
+              const trBlob = transfers.find(t => t.fileMeta.fileName === meta.fileName && t.blobUrl)?.blobUrl;
+              const mediaUrl = trBlob || cachedMediaBlobs[meta.fileName];
+              if (mediaUrl) {
+                media.push({
+                  id: msg.id,
+                  url: mediaUrl,
+                  type: mimeType.startsWith('image/') ? 'image' : 'video',
+                  fileName: meta.fileName,
+                  sender: msg.sender,
+                  timestamp: msg.timestamp,
+                });
+              }
             }
           }
         } catch {}
+      } else if (msg.text.startsWith('data:audio/')) {
+        files.push({
+          id: msg.id,
+          fileName: 'Голосове повідомлення',
+          fileSize: Math.round((msg.text.length * 3) / 4),
+          mimeType: 'audio/webm',
+          sender: msg.sender === username ? 'Ви' : msg.sender,
+          timestamp: msg.timestamp,
+          downloadData: msg.text,
+        });
+      } else if (msg.text.startsWith('data:application/')) {
+        const mime = msg.text.substring(5, msg.text.indexOf(';'));
+        const ext = mime.split('/')[1] || 'bin';
+        files.push({
+          id: msg.id,
+          fileName: `Файл_${format(new Date(msg.timestamp), 'HHmm')}.${ext}`,
+          fileSize: Math.round((msg.text.length * 3) / 4),
+          mimeType: mime,
+          sender: msg.sender === username ? 'Ви' : msg.sender,
+          timestamp: msg.timestamp,
+          downloadData: msg.text,
+        });
       }
     });
-    return list;
-  }, [messages, transfers, cachedMediaBlobs]);
+    return { roomMediaList: media, roomFiles: files.reverse() };
+  }, [messages, transfers, cachedMediaBlobs, username]);
 
   const handleMediaClick = useCallback((url: string, type: 'image' | 'video', fileName: string) => {
     const idx = roomMediaList.findIndex(m => m.url === url);
@@ -587,53 +653,6 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       initiateTransfer(f, targetUsername, normalizedRoomId);
     }
   }, [targetUsername, normalizedRoomId, initiateTransfer, sendMessage]);
-
-  const roomFiles = useMemo<RoomFileItem[]>(() => {
-    const files: RoomFileItem[] = [];
-    messages.forEach(msg => {
-      if (msg.isDeleted) return;
-
-      if (msg.text.startsWith('{"type":"file-transfer-meta"')) {
-        try {
-          const meta = JSON.parse(msg.text);
-          if (meta.fileName) {
-            files.push({
-              id: msg.id,
-              fileName: meta.fileName,
-              fileSize: meta.fileSize || 0,
-              mimeType: meta.mimeType || 'application/octet-stream',
-              sender: msg.sender === username ? 'Ви' : msg.sender,
-              timestamp: msg.timestamp,
-            });
-          }
-        } catch {}
-      } else if (msg.text.startsWith('data:audio/')) {
-        files.push({
-          id: msg.id,
-          fileName: 'Голосове повідомлення',
-          fileSize: Math.round((msg.text.length * 3) / 4),
-          mimeType: 'audio/webm',
-          sender: msg.sender === username ? 'Ви' : msg.sender,
-          timestamp: msg.timestamp,
-          downloadData: msg.text,
-        });
-      } else if (msg.text.startsWith('data:image/') || msg.text.startsWith('data:video/') || msg.text.startsWith('data:application/')) {
-        const mime = msg.text.substring(5, msg.text.indexOf(';'));
-        const ext = mime.split('/')[1] || 'bin';
-        files.push({
-          id: msg.id,
-          fileName: `Файл_${format(new Date(msg.timestamp), 'HHmm')}.${ext}`,
-          fileSize: Math.round((msg.text.length * 3) / 4),
-          mimeType: mime,
-          sender: msg.sender === username ? 'Ви' : msg.sender,
-          timestamp: msg.timestamp,
-          downloadData: msg.text,
-        });
-      }
-    });
-
-    return files.reverse();
-  }, [messages, username]);
 
   const {
     callState,
@@ -711,18 +730,18 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     setupPush();
   }, []);
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     if (!targetUsername) return;
     setIsDragging(true);
-  };
+  }, [targetUsername]);
 
-  const handleDragLeave = (e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-  };
+  }, []);
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     if (!targetUsername) return;
@@ -731,7 +750,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     if (file) {
       initiateTransfer(file, targetUsername, roomId);
     }
-  };
+  }, [targetUsername, roomId, initiateTransfer]);
 
   useEffect(() => {
     let mounted = true;
@@ -806,17 +825,13 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
       cacheMessages(decryptedHistory);
       
       setMessages(prev => {
-        const merged = [...prev];
+        // Map-based O(n) merge instead of O(n²) findIndex
+        const map = new Map(prev.map(m => [m.id, m]));
         decryptedHistory.forEach(m => {
-          const idx = merged.findIndex(x => x.id === m.id);
-          if (idx === -1) {
-            merged.push(m);
-          } else {
-            merged[idx] = { ...merged[idx], ...m };
-          }
+          const existing = map.get(m.id);
+          map.set(m.id, existing ? { ...existing, ...m } : m);
         });
-        merged.sort((a, b) => a.timestamp - b.timestamp);
-        return merged;
+        return [...map.values()].sort((a, b) => a.timestamp - b.timestamp);
       });
     } catch (e) {
       console.error('Failed to sync history', e);
@@ -1025,16 +1040,25 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     };
   }, [normalizedRoomId, username]);
 
-  // Feature 3: Mark messages as read when chat is visible
+  // Feature 3: Mark messages as read when chat is visible (with deduplication)
+  const sentReadReceiptsRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     if (!username || messages.length === 0) return;
-    const unreadFromOthers = messages.filter(m => m.sender !== username && (!m.readBy || !m.readBy.includes(username)));
+    const unreadFromOthers = messages.filter(m => 
+      m.sender !== username && 
+      (!m.readBy || !m.readBy.includes(username)) &&
+      !sentReadReceiptsRef.current.has(m.id)
+    );
     if (unreadFromOthers.length === 0) return;
 
     const timer = setTimeout(() => {
       const ids = unreadFromOthers.map(m => m.id);
       
-      // Optimistically update local readBy state so we don't re-send
+      // Track sent receipts to avoid re-sending
+      ids.forEach(id => sentReadReceiptsRef.current.add(id));
+      
+      // Optimistically update local readBy state
       setMessages(prev => prev.map(m => {
         if (ids.includes(m.id)) {
           const readBy = m.readBy ? [...m.readBy] : [];
@@ -1055,11 +1079,12 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
     return () => clearTimeout(timer);
   }, [messages, username, normalizedRoomId]);
 
-  // Feature 20: Auto-destruct messages with TTL
+  // Feature 20: Auto-destruct messages with TTL (stable timers)
+  const ttlTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
   useEffect(() => {
-    const timers: NodeJS.Timeout[] = [];
     messages.forEach(msg => {
-      if (msg.ttl && msg.ttl > 0) {
+      if (msg.ttl && msg.ttl > 0 && !ttlTimersRef.current.has(msg.id)) {
         const expiresAt = msg.timestamp + msg.ttl * 1000;
         const remaining = expiresAt - Date.now();
         if (remaining <= 0) {
@@ -1067,12 +1092,17 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
         } else {
           const timer = setTimeout(() => {
             setMessages(prev => prev.filter(m => m.id !== msg.id));
+            ttlTimersRef.current.delete(msg.id);
           }, remaining);
-          timers.push(timer);
+          ttlTimersRef.current.set(msg.id, timer);
         }
       }
     });
-    return () => timers.forEach(t => clearTimeout(t));
+
+    return () => {
+      ttlTimersRef.current.forEach(t => clearTimeout(t));
+      ttlTimersRef.current.clear();
+    };
   }, [messages]);
 
   const handleChatScroll = useCallback(() => {
@@ -1342,6 +1372,9 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
           const repliedMsg = msg.replyTo ? getReplyMessage(msg.replyTo) : null;
           const isSelected = selectedMessages.has(msg.id);
+          
+          // Only pass transfers/cachedMediaBlobs to file-meta messages to preserve memo()
+          const isFileMsg = msg.text.startsWith('{"type":"file-transfer-meta"');
 
           return (
             <ChatMessageItem
@@ -1363,8 +1396,8 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
               onDelete={handleDeleteMessage}
               onScrollToReply={scrollToMessage}
               onMediaClick={handleMediaClick}
-              transfers={transfers}
-              cachedMediaBlobs={cachedMediaBlobs}
+              transfers={isFileMsg ? transfers : undefined}
+              cachedMediaBlobs={isFileMsg ? cachedMediaBlobs : undefined}
             />
           );
         })}

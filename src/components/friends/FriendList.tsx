@@ -6,7 +6,7 @@ import { FriendWithStatus } from '@/lib/friends';
 import { Button } from '@/components/ui/button';
 import { UserMinus, Plus, X, Bell } from 'lucide-react';
 import { AddFriendModal } from './AddFriendModal';
-import Pusher from 'pusher-js';
+import { getPusherClient } from '@/lib/pusher';
 import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
 import { setUnreadBadgeCount, incrementUnreadBadge } from '@/lib/badge';
 import { playIncomingMessageSound } from '@/lib/sound';
@@ -117,10 +117,9 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
     // Initial heartbeat
     fetch('/api/presence/heartbeat', { method: 'POST' }).catch(() => {});
 
-    // Setup Pusher for real-time presence & user notifications
-    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY || 'dummy_key', {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu',
-    });
+    // Setup Pusher for real-time presence & user notifications (reuses singleton)
+    const pusher = getPusherClient();
+    if (!pusher) return;
 
     const channel = pusher.subscribe(`user-${currentUser}`);
     channel.bind('friend-online', (data: { username: string }) => {

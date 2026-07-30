@@ -7,14 +7,19 @@ export const sanitizeChannelName = (name: string) => {
   return name.replace(/:/g, '--');
 };
 
-// Client-side Pusher instance
+// Client-side Pusher singleton instance
+let pusherInstance: PusherClient | null = null;
+
 export const getPusherClient = () => {
   if (typeof window === 'undefined') return null;
   
-  return new PusherClient(
-    process.env.NEXT_PUBLIC_PUSHER_KEY || 'dummy_key',
-    {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu',
-    }
-  );
+  if (!pusherInstance) {
+    pusherInstance = new PusherClient(
+      process.env.NEXT_PUBLIC_PUSHER_KEY || 'dummy_key',
+      {
+        cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu',
+      }
+    );
+  }
+  return pusherInstance;
 };

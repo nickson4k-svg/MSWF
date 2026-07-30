@@ -11,16 +11,28 @@ interface LinkPreviewData {
   url: string;
 }
 
+// Module-level cache: same URL won't be fetched twice per page load
+const unfurlCache = new Map<string, LinkPreviewData | null>();
+
 export function LinkPreview({ url }: { url: string }) {
-  const [data, setData] = useState<LinkPreviewData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<LinkPreviewData | null>(() => unfurlCache.get(url) ?? null);
+  const [loading, setLoading] = useState(() => !unfurlCache.has(url));
 
   useEffect(() => {
+    // Already cached (including null = no data)
+    if (unfurlCache.has(url)) {
+      return;
+    }
+
     let mounted = true;
     fetch(`/api/unfurl?url=${encodeURIComponent(url)}`)
       .then(res => res.json())
-      .then(d => { if (mounted && d.title) setData(d); })
-      .catch(() => {})
+      .then(d => {
+        const result = d.title ? d : null;
+        unfurlCache.set(url, result);
+        if (mounted && result) setData(result);
+      })
+      .catch(() => { unfurlCache.set(url, null); })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
   }, [url]);
@@ -54,3 +66,4 @@ export function LinkPreview({ url }: { url: string }) {
     </a>
   );
 }
+
