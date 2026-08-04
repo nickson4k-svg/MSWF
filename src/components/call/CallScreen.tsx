@@ -168,6 +168,33 @@ export const CallScreen = ({
     setIsRecording(false);
   }, []);
 
+  // Feature: Auto-hide controls when screen share / demo is active
+  const isDemoActive = Boolean(isScreenSharing || isRemoteScreenSharing);
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseMove = useCallback(() => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    if (isDemoActive) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 5000);
+    }
+  }, [isDemoActive]);
+
+  useEffect(() => {
+    if (isDemoActive) {
+      handleMouseMove();
+    } else {
+      setShowControls(true);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    }
+    return () => {
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+  }, [isDemoActive, handleMouseMove]);
+
   if (callState === 'idle' && !incomingCall) return null;
 
   if (callState === 'ringing' && incomingCall) {
@@ -200,15 +227,18 @@ export const CallScreen = ({
   }
 
   return (
-    <div className="absolute inset-0 z-50 bg-zinc-950 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+    <div 
+      className="absolute inset-0 z-50 bg-zinc-950 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300"
+      onMouseMove={handleMouseMove}
+    >
       {/* Header */}
-      <div className="absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-zinc-950/90 to-transparent z-10 flex items-center justify-between px-6 pointer-events-none">
+      <div className={`absolute top-0 inset-x-0 h-16 bg-gradient-to-b from-zinc-950/90 to-transparent z-10 flex items-center justify-between px-6 transition-all duration-500 ${isDemoActive && !showControls ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}`}>
         <div className="flex items-center gap-2 text-zinc-200 font-medium text-sm">
           <DitheringStatusIndicator isOnline={true} size="sm" />
           Дзвінок з {targetUsername || incomingCall?.sender}
         </div>
         {/* Feature 17: Signal quality + stats */}
-        <div className="flex items-center gap-3 pointer-events-auto">
+        <div className="flex items-center gap-3">
           <SignalBars quality={quality} />
           {stats.rtt > 0 && (
             <span className="text-[10px] text-zinc-500 font-mono">{stats.rtt}ms</span>
@@ -241,11 +271,6 @@ export const CallScreen = ({
         )}
 
         <div className="absolute top-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
-            <div className="bg-zinc-900/90 text-white px-4 py-1.5 rounded-full text-sm font-medium shadow-lg backdrop-blur flex items-center gap-2 animate-in slide-in-from-top-4">
-              <Timer className="w-4 h-4" />
-              {formatDuration(callDuration)}
-            </div>
-            
             {/* Feature 10: Network Quality Indicator */}
             {networkQuality && networkQuality !== 'Good' && (
               <div className="bg-zinc-900/90 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg backdrop-blur flex items-center gap-1.5 animate-in slide-in-from-top-4">
@@ -265,7 +290,9 @@ export const CallScreen = ({
       </div>
 
       {/* Controls */}
-      <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-zinc-950 to-transparent z-10 flex items-end justify-center pb-6 gap-3">
+      <div className={`absolute bottom-0 inset-x-0 h-28 bg-gradient-to-t from-zinc-950/95 via-zinc-950/60 to-transparent z-20 flex items-end justify-center pb-6 gap-3 transition-all duration-500 ${
+        isDemoActive && !showControls ? 'opacity-0 pointer-events-none translate-y-6' : 'opacity-100 translate-y-0'
+      }`}>
         <Button 
           variant="outline"
           onClick={onToggleMute}

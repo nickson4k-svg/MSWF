@@ -6,8 +6,8 @@ import { format } from 'date-fns';
 import { parseMarkdown } from '@/lib/markdown';
 import { LinkPreview } from './LinkPreview';
 import { FileMessage } from './FileMessage';
-
 import { FileTransfer } from '@/hooks/useFileTransfer';
+import { VoiceMessagePlayer } from './VoiceMessagePlayer';
 
 export interface Message {
   id: string;
@@ -234,7 +234,7 @@ export const ChatMessageItem = memo(function ChatMessageItem({
               `}
             >
               {msg.text.startsWith('data:audio/') ? (
-                <audio controls src={msg.text} className="max-w-[200px] sm:max-w-[250px] h-10" />
+                <VoiceMessagePlayer src={msg.text} isMe={isMe} theme={theme} />
               ) : (
                 <p className="text-[15px] leading-relaxed break-words" dangerouslySetInnerHTML={{ __html: parsedHtml }} />
               )}
