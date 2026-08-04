@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, Video, VideoOff, MonitorUp, MonitorX, PhoneOff, Circle, Square, Sparkles, Timer } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, MonitorUp, MonitorX, PhoneOff, Circle, Square, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VideoGrid } from './VideoGrid';
 

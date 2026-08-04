@@ -74,14 +74,6 @@ export function VoiceMessagePlayer({ src, isMe }: VoiceMessagePlayerProps) {
     }
   }, [isPlaying]);
 
-  const handleSeek = useCallback((index: number) => {
-    const audio = audioRef.current;
-    if (!audio || !duration) return;
-    const seekTime = (index / waveformBars.length) * duration;
-    audio.currentTime = seekTime;
-    setCurrentTime(seekTime);
-  }, [duration, waveformBars.length]);
-
   const cycleSpeed = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     const audio = audioRef.current;
@@ -98,7 +90,6 @@ export function VoiceMessagePlayer({ src, isMe }: VoiceMessagePlayerProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const currentBarIndex = duration > 0 ? Math.floor((currentTime / duration) * waveformBars.length) : 0;
 
   return (
