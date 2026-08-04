@@ -75,25 +75,25 @@ export const ChatHeader = memo(function ChatHeader({
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-1.5 sm:gap-3 relative">
+      <div className="flex items-center gap-2 sm:gap-3 relative">
         <Button
           variant="ghost"
           size="icon"
           onClick={onToggleThemePicker}
-          className="rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+          className="w-10 h-10 rounded-full hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
           title="Тема чату"
         >
-          <Palette className="w-5 h-5" />
+          <Palette className="w-6 h-6 text-purple-400" />
         </Button>
         {targetUsername && onStartCall && (
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onStartCall(targetUsername)}
-            className="rounded-full hover:bg-emerald-950/40 text-emerald-400 hover:text-emerald-300 transition-colors"
+            className="w-10 h-10 rounded-full hover:bg-emerald-950/50 text-emerald-400 hover:text-emerald-300 transition-colors"
             title="Відеодзвінок"
           >
-            <VideoIcon className="w-5 h-5" />
+            <VideoIcon className="w-6 h-6" />
           </Button>
         )}
         {onClearChat && (
@@ -101,10 +101,10 @@ export const ChatHeader = memo(function ChatHeader({
             variant="ghost"
             size="icon"
             onClick={onClearChat}
-            className="rounded-full hover:bg-red-950/40 text-red-400/80 hover:text-red-400 transition-colors"
+            className="w-10 h-10 rounded-full hover:bg-amber-950/40 text-amber-400/90 hover:text-amber-300 transition-colors"
             title="Очистити чат"
           >
-            <BrushCleaning className="w-5 h-5" />
+            <BrushCleaning className="w-6 h-6" />
           </Button>
         )}
         <ThemeToggle />

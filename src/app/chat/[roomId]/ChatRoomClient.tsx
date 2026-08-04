@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { getPusherClient, sanitizeChannelName } from '@/lib/pusher';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Copy, ArrowLeft, CheckCircle2, Video as VideoIcon, Reply, X, Check, CheckCheck, Palette, Trash2, ChevronDown } from 'lucide-react';
+import { Send, Copy, ArrowLeft, CheckCircle2, Video as VideoIcon, Reply, X, Check, CheckCheck, Palette, Trash2, ChevronDown, GripVertical, ArrowLeftRight } from 'lucide-react';
 import { format, isToday, isYesterday, isSameDay, formatDistanceToNow } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { FriendList } from '@/components/friends/FriendList';
@@ -217,7 +217,37 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const [shaderType, setShaderType] = useState<ShaderType>('fluid'); // Shader type state
   const [showThemePicker, setShowThemePicker] = useState(false);
   
-  // Feature 15: Last Seen tracking
+  // Modular Drag & Drop Panel Order
+  type PanelType = 'files' | 'chat' | 'friends';
+  const [panelOrder, setPanelOrder] = useState<PanelType[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('nexus_panel_order');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length === 3) return parsed as PanelType[];
+        } catch {}
+      }
+    }
+    return ['files', 'chat', 'friends'];
+  });
+  const [draggedPanel, setDraggedPanel] = useState<PanelType | null>(null);
+
+  const swapPanels = useCallback((from: PanelType, to: PanelType) => {
+    setPanelOrder(prev => {
+      const newOrder = [...prev];
+      const fromIdx = newOrder.indexOf(from);
+      const toIdx = newOrder.indexOf(to);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        newOrder[fromIdx] = to;
+        newOrder[toIdx] = from;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('nexus_panel_order', JSON.stringify(newOrder));
+        }
+      }
+      return newOrder;
+    });
+  }, []);
   const [targetPresence, setTargetPresence] = useState<{ isOnline: boolean; lastSeen: number | null }>({ isOnline: false, lastSeen: null });
   const [offlineQueue, setOfflineQueue] = useState<unknown[]>([]);
   const offlineQueueRef = useRef<unknown[]>([]);
@@ -1397,238 +1427,298 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
           </div>
         )}
         
-        {/* ЛІВА ПАНЕЛЬ: P2P Файли (тільки в приватних чатах) */}
-        {targetUsername && (
-          <div className="hidden lg:flex flex-col w-72 lg:w-80 h-full flex-shrink-0 animate-slide-up">
-            <FileTransferSidebar 
-              transfers={transfers}
-              roomFiles={roomFiles}
-              messages={messages}
-              currentUsername={username}
-              onCancelTransfer={cancelTransfer}
-              onSendFile={handleSendFile}
-              isFriendOnline={true}
-              onScrollToMessage={scrollToMessage}
-            />
-          </div>
-        )}
-
-        {/* ЦЕНТР: Чат */}
-        <div className={`flex-1 flex flex-col h-full md:rounded-2xl md:border shadow-2xl relative overflow-hidden animate-slide-up min-w-0 transition-colors duration-500 ${getThemeClasses(theme)}`}>
-        {/* Background ambient light */}
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
-      
-      {/* Header */}
-      <div className="relative">
-        <ChatHeader
-          roomId={roomId}
-          username={username}
-          targetUsername={targetUsername}
-          targetPresence={targetPresence}
-          typingText={typingText}
-          onBack={handleBack}
-          onToggleThemePicker={handleToggleThemePicker}
-          onStartCall={startCall}
-          onClearChat={() => setShowClearConfirm(true)}
-        />
-        {showThemePicker && (
-          <ThemePickerModal
-            roomId={roomId}
-            theme={theme}
-            shaderType={shaderType}
-            onThemeChange={(newTheme) => setTheme(newTheme)}
-            onShaderChange={(newShader) => setShaderType(newShader)}
-            onClose={() => setShowThemePicker(false)}
-          />
-        )}
-      </div>
-
-      {/* Chat Area */}
-      <div 
-        ref={chatAreaRef} 
-        className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-1 scroll-smooth transition-all duration-500 relative ${
-          isClearingChat ? 'opacity-0 scale-95 blur-md -translate-y-4 duration-500 pointer-events-none' : ''
-        }`}
-        onClick={() => setContextMenu(null)}
-        onScroll={handleChatScroll}
-      >
-        {isClearingChat && (
-          <div className="absolute inset-0 z-40 bg-zinc-950/60 backdrop-blur-md flex flex-col items-center justify-center space-y-3 animate-in fade-in duration-200">
-            <div className="w-14 h-14 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shadow-2xl animate-bounce">
-              <BrushCleaning className="w-7 h-7" />
-            </div>
-            <p className="text-sm font-semibold text-zinc-200 animate-pulse">Очищення історії чату...</p>
-          </div>
-        )}
-        {messages.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center text-center space-y-4 animate-fade-in opacity-50">
-            <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-              <Send className="w-8 h-8 text-zinc-600" />
-            </div>
-            <p className="text-zinc-500 font-medium">Поки що тут тихо.<br/>Напишіть перше повідомлення!</p>
-          </div>
-        )}
-        
-        {messages.map((msg, idx) => {
-          const isMe = msg.sender === username;
-          const prevMsg = messages[idx - 1];
-          const showSender = !prevMsg || prevMsg.sender !== msg.sender || (msg.timestamp - prevMsg.timestamp > 300000);
-          
-          const msgDate = new Date(msg.timestamp);
-          const prevDate = prevMsg ? new Date(prevMsg.timestamp) : null;
-          const showDateSeparator = !prevDate || !isSameDay(msgDate, prevDate);
-
-          const repliedMsg = msg.replyTo ? getReplyMessage(msg.replyTo) : null;
-          const isSelected = selectedMessages.has(msg.id);
-          
-          // Only pass transfers/cachedMediaBlobs to file-meta messages to preserve memo()
-          const isFileMsg = msg.text.startsWith('{"type":"file-transfer-meta"');
-
-          return (
-            <ChatMessageItem
-              key={msg.id}
-              msg={msg}
-              isMe={isMe}
-              showSender={showSender}
-              showDateSeparator={showDateSeparator}
-              dateLabel={getDateLabel(msgDate)}
-              repliedMsg={repliedMsg}
-              selectionMode={selectionMode}
-              isSelected={isSelected}
-              theme={theme}
-              username={username}
-              onSelect={handleSelectMessage}
-              onContextMenu={handleContextMenu}
-              onReaction={handleReaction}
-              onReply={handleReply}
-              onDelete={handleDeleteMessage}
-              onScrollToReply={scrollToMessage}
-              onMediaClick={handleMediaClick}
-              transfers={isFileMsg ? transfers : undefined}
-              cachedMediaBlobs={isFileMsg ? cachedMediaBlobs : undefined}
-            />
-          );
-        })}
-        <div ref={scrollRef} className="h-4" />
-      </div>
-
-      {/* Feature 12: Context Menu */}
-      {contextMenu && (
-        <div 
-          className="fixed z-50 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden min-w-[160px] animate-in fade-in zoom-in-95 duration-100"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          onMouseLeave={() => setContextMenu(null)}
-        >
-          <button 
-            className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
-            onClick={() => { setReplyTo(contextMenu.msg); setContextMenu(null); inputRef.current?.focus(); }}
-          >
-            Відповісти
-          </button>
-          <button 
-            className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
-            onClick={() => { navigator.clipboard.writeText(contextMenu.msg.text); setCopied(true); setTimeout(()=>setCopied(false), 2000); setContextMenu(null); }}
-          >
-            Копіювати текст
-          </button>
-          <button 
-            className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
-            onClick={() => { setSelectionMode(true); setSelectedMessages(new Set([contextMenu.msg.id])); setContextMenu(null); }}
-          >
-            Вибрати кілька
-          </button>
-          
-          {!contextMenu.msg.isDeleted && (
-            <>
-              <div className="h-px bg-zinc-800 w-full" />
-              {contextMenu.msg.sender === username && (
-                <button 
-                  className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
-                  onClick={() => { setEditingMsg(contextMenu.msg); setInputText(contextMenu.msg.text); setContextMenu(null); inputRef.current?.focus(); }}
+        {/* DYNAMIC DRAG & DROP MODULAR PANELS */}
+        {panelOrder.map((panelId) => {
+          if (panelId === 'files') {
+            if (!targetUsername) return null;
+            return (
+              <div 
+                key="files"
+                draggable
+                onDragStart={() => setDraggedPanel('files')}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => {
+                  if (draggedPanel && draggedPanel !== 'files') swapPanels(draggedPanel, 'files');
+                  setDraggedPanel(null);
+                }}
+                className={`hidden lg:flex flex-col w-72 lg:w-80 h-full flex-shrink-0 animate-slide-up relative group transition-all duration-300 ${
+                  draggedPanel === 'files' ? 'opacity-40 scale-95 border-2 border-dashed border-blue-500 rounded-2xl' : ''
+                }`}
+              >
+                <div 
+                  className="absolute top-2.5 right-2.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-zinc-950/90 border border-zinc-700/80 px-2.5 py-1 rounded-xl text-[11px] font-medium text-zinc-300 flex items-center gap-1.5 shadow-2xl backdrop-blur-md"
+                  title="Затисніть мишкою для перетягування панелі"
                 >
-                  Редагувати
+                  <GripVertical className="w-4 h-4 text-blue-400" />
+                  <span>Перетягнути</span>
+                </div>
+                <FileTransferSidebar 
+                  transfers={transfers}
+                  roomFiles={roomFiles}
+                  messages={messages}
+                  currentUsername={username}
+                  onCancelTransfer={cancelTransfer}
+                  onSendFile={handleSendFile}
+                  isFriendOnline={true}
+                  onScrollToMessage={scrollToMessage}
+                />
+              </div>
+            );
+          }
+
+          if (panelId === 'friends') {
+            return (
+              <div 
+                key="friends"
+                draggable
+                onDragStart={() => setDraggedPanel('friends')}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => {
+                  if (draggedPanel && draggedPanel !== 'friends') swapPanels(draggedPanel, 'friends');
+                  setDraggedPanel(null);
+                }}
+                className={`hidden md:flex flex-col w-72 lg:w-80 h-full flex-shrink-0 animate-slide-up relative group transition-all duration-300 ${
+                  draggedPanel === 'friends' ? 'opacity-40 scale-95 border-2 border-dashed border-blue-500 rounded-2xl' : ''
+                }`}
+              >
+                <div 
+                  className="absolute top-2.5 right-2.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-zinc-950/90 border border-zinc-700/80 px-2.5 py-1 rounded-xl text-[11px] font-medium text-zinc-300 flex items-center gap-1.5 shadow-2xl backdrop-blur-md"
+                  title="Затисніть мишкою для перетягування панелі"
+                >
+                  <GripVertical className="w-4 h-4 text-blue-400" />
+                  <span>Перетягнути</span>
+                </div>
+                <FriendList currentUser={username} />
+              </div>
+            );
+          }
+
+          // panelId === 'chat'
+          return (
+            <div 
+              key="chat"
+              draggable
+              onDragStart={() => setDraggedPanel('chat')}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => {
+                if (draggedPanel && draggedPanel !== 'chat') swapPanels(draggedPanel, 'chat');
+                setDraggedPanel(null);
+              }}
+              className={`flex-1 flex flex-col h-full md:rounded-2xl md:border shadow-2xl relative overflow-hidden animate-slide-up min-w-0 transition-colors duration-500 ${getThemeClasses(theme)} ${
+                draggedPanel === 'chat' ? 'opacity-40 scale-95 border-2 border-dashed border-blue-500' : ''
+              }`}
+            >
+              {/* Background ambient light */}
+              <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+            
+              {/* Header */}
+              <div className="relative">
+                <ChatHeader
+                  roomId={roomId}
+                  username={username}
+                  targetUsername={targetUsername}
+                  targetPresence={targetPresence}
+                  typingText={typingText}
+                  onBack={handleBack}
+                  onToggleThemePicker={handleToggleThemePicker}
+                  onStartCall={startCall}
+                  onClearChat={() => setShowClearConfirm(true)}
+                />
+                {showThemePicker && (
+                  <ThemePickerModal
+                    roomId={roomId}
+                    theme={theme}
+                    shaderType={shaderType}
+                    onThemeChange={(newTheme) => setTheme(newTheme)}
+                    onShaderChange={(newShader) => setShaderType(newShader)}
+                    onClose={() => setShowThemePicker(false)}
+                  />
+                )}
+              </div>
+
+              {/* Chat Area */}
+              <div 
+                ref={chatAreaRef} 
+                className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-1 scroll-smooth transition-all duration-500 relative ${
+                  isClearingChat ? 'opacity-0 scale-95 blur-md -translate-y-4 duration-500 pointer-events-none' : ''
+                }`}
+                onClick={() => setContextMenu(null)}
+                onScroll={handleChatScroll}
+              >
+                {isClearingChat && (
+                  <div className="absolute inset-0 z-40 bg-zinc-950/60 backdrop-blur-md flex flex-col items-center justify-center space-y-3 animate-in fade-in duration-200">
+                    <div className="w-14 h-14 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 shadow-2xl animate-bounce">
+                      <BrushCleaning className="w-7 h-7" />
+                    </div>
+                    <p className="text-sm font-semibold text-zinc-200 animate-pulse">Очищення історії чату...</p>
+                  </div>
+                )}
+                {messages.length === 0 && (
+                  <div className="h-full flex flex-col items-center justify-center text-center space-y-4 animate-fade-in opacity-50">
+                    <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+                      <Send className="w-8 h-8 text-zinc-600" />
+                    </div>
+                    <p className="text-zinc-500 font-medium">Поки що тут тихо.<br/>Напишіть перше повідомлення!</p>
+                  </div>
+                )}
+                
+                {messages.map((msg, idx) => {
+                  const isMe = msg.sender === username;
+                  const prevMsg = messages[idx - 1];
+                  const showSender = !prevMsg || prevMsg.sender !== msg.sender || (msg.timestamp - prevMsg.timestamp > 300000);
+                  
+                  const msgDate = new Date(msg.timestamp);
+                  const prevDate = prevMsg ? new Date(prevMsg.timestamp) : null;
+                  const showDateSeparator = !prevDate || !isSameDay(msgDate, prevDate);
+
+                  const repliedMsg = msg.replyTo ? getReplyMessage(msg.replyTo) : null;
+                  const isSelected = selectedMessages.has(msg.id);
+                  
+                  // Only pass transfers/cachedMediaBlobs to file-meta messages to preserve memo()
+                  const isFileMsg = msg.text.startsWith('{"type":"file-transfer-meta"');
+
+                  return (
+                    <ChatMessageItem
+                      key={msg.id}
+                      msg={msg}
+                      isMe={isMe}
+                      showSender={showSender}
+                      showDateSeparator={showDateSeparator}
+                      dateLabel={getDateLabel(msgDate)}
+                      repliedMsg={repliedMsg}
+                      selectionMode={selectionMode}
+                      isSelected={isSelected}
+                      theme={theme}
+                      username={username}
+                      onSelect={handleSelectMessage}
+                      onContextMenu={handleContextMenu}
+                      onReaction={handleReaction}
+                      onReply={handleReply}
+                      onDelete={handleDeleteMessage}
+                      onScrollToReply={scrollToMessage}
+                      onMediaClick={handleMediaClick}
+                      transfers={isFileMsg ? transfers : undefined}
+                      cachedMediaBlobs={isFileMsg ? cachedMediaBlobs : undefined}
+                    />
+                  );
+                })}
+                <div ref={scrollRef} className="h-4" />
+              </div>
+
+              {/* Feature 12: Context Menu */}
+              {contextMenu && (
+                <div 
+                  className="fixed z-50 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden min-w-[160px] animate-in fade-in zoom-in-95 duration-100"
+                  style={{ top: contextMenu.y, left: contextMenu.x }}
+                  onMouseLeave={() => setContextMenu(null)}
+                >
+                  <button 
+                    className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
+                    onClick={() => { setReplyTo(contextMenu.msg); setContextMenu(null); inputRef.current?.focus(); }}
+                  >
+                    Відповісти
+                  </button>
+                  <button 
+                    className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
+                    onClick={() => { navigator.clipboard.writeText(contextMenu.msg.text); setCopied(true); setTimeout(()=>setCopied(false), 2000); setContextMenu(null); }}
+                  >
+                    Копіювати текст
+                  </button>
+                  <button 
+                    className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
+                    onClick={() => { setSelectionMode(true); setSelectedMessages(new Set([contextMenu.msg.id])); setContextMenu(null); }}
+                  >
+                    Вибрати кілька
+                  </button>
+                  
+                  {!contextMenu.msg.isDeleted && (
+                    <>
+                      <div className="h-px bg-zinc-800 w-full" />
+                      {contextMenu.msg.sender === username && (
+                        <button 
+                          className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors"
+                          onClick={() => { setEditingMsg(contextMenu.msg); setInputText(contextMenu.msg.text); setContextMenu(null); inputRef.current?.focus(); }}
+                        >
+                          Редагувати
+                        </button>
+                      )}
+                      <button 
+                        className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                        onClick={() => {
+                          const targetMsg = contextMenu.msg;
+                          setContextMenu(null);
+                          handleDeleteMessage(targetMsg);
+                        }}
+                      >
+                        Видалити
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Feature 12: Selection Action Bar */}
+              {selectionMode && (
+                <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-40 bg-zinc-900 border border-zinc-800 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-4 animate-slide-up">
+                  <span className="text-sm font-medium text-blue-400">{selectedMessages.size} вибрано</span>
+                  <div className="h-4 w-px bg-zinc-700"></div>
+                  <button 
+                    className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors"
+                    onClick={() => {
+                      if (confirm(`Видалити ${selectedMessages.size} повідомлень?`)) {
+                        Array.from(selectedMessages).forEach(msgId => {
+                          fetch('/api/messages/action', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'delete', msgId, roomId })
+                          });
+                        });
+                        setSelectionMode(false);
+                        setSelectedMessages(new Set());
+                      }
+                    }}
+                  >
+                    Видалити
+                  </button>
+                  <div className="h-4 w-px bg-zinc-700"></div>
+                  <button 
+                    className="text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+                    onClick={() => { setSelectionMode(false); setSelectedMessages(new Set()); }}
+                  >
+                    Скасувати
+                  </button>
+                </div>
+              )}
+
+              {/* Floating Scroll to Bottom Button */}
+              {showScrollBottom && (
+                <button
+                  onClick={scrollToBottom}
+                  className="absolute bottom-24 right-6 z-40 p-3 rounded-full bg-zinc-900/90 border border-zinc-700/80 text-zinc-300 hover:text-white shadow-2xl hover:bg-zinc-800 transition-all transform hover:scale-110 active:scale-95 backdrop-blur-md flex items-center justify-center animate-in fade-in zoom-in duration-150"
+                  title="Наниз"
+                >
+                  <ChevronDown className="w-5 h-5 text-emerald-400" />
                 </button>
               )}
-              <button 
-                className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
-                onClick={() => {
-                  const targetMsg = contextMenu.msg;
-                  setContextMenu(null);
-                  handleDeleteMessage(targetMsg);
-                }}
-              >
-                Видалити
-              </button>
-            </>
-          )}
-        </div>
-      )}
 
-      {/* Feature 12: Selection Action Bar */}
-      {selectionMode && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-40 bg-zinc-900 border border-zinc-800 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-4 animate-slide-up">
-          <span className="text-sm font-medium text-blue-400">{selectedMessages.size} вибрано</span>
-          <div className="h-4 w-px bg-zinc-700"></div>
-          <button 
-            className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors"
-            onClick={() => {
-              if (confirm(`Видалити ${selectedMessages.size} повідомлень?`)) {
-                Array.from(selectedMessages).forEach(msgId => {
-                  fetch('/api/messages/action', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'delete', msgId, roomId })
-                  });
-                });
-                setSelectionMode(false);
-                setSelectedMessages(new Set());
-              }
-            }}
-          >
-            Видалити
-          </button>
-          <div className="h-4 w-px bg-zinc-700"></div>
-          <button 
-            className="text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
-            onClick={() => { setSelectionMode(false); setSelectedMessages(new Set()); }}
-          >
-            Скасувати
-          </button>
-        </div>
-      )}
-
-      {/* Floating Scroll to Bottom Button */}
-      {showScrollBottom && (
-        <button
-          onClick={scrollToBottom}
-          className="absolute bottom-24 right-6 z-40 p-3 rounded-full bg-zinc-900/90 border border-zinc-700/80 text-zinc-300 hover:text-white shadow-2xl hover:bg-zinc-800 transition-all transform hover:scale-110 active:scale-95 backdrop-blur-md flex items-center justify-center animate-in fade-in zoom-in duration-150"
-          title="Наниз"
-        >
-          <ChevronDown className="w-5 h-5 text-emerald-400" />
-        </button>
-      )}
-
-      {/* Input Area */}
-      <ChatInput
-        inputText={inputText}
-        replyTo={replyTo}
-        selectedTtl={selectedTtl}
-        isRecordingVoice={isRecordingVoice}
-        inputRef={inputRef}
-        onInputChange={handleInputChange}
-        onSendMessage={handleSendMessage}
-        onCancelReply={() => setReplyTo(null)}
-        onSelectTtl={(ttl) => setSelectedTtl(ttl)}
-        onStartVoiceRecording={startVoiceRecording}
-        onStopVoiceRecording={stopVoiceRecording}
-        onSendFile={handleSendFile}
-      />
-      </div>
-
-      {/* ПРАВА ПАНЕЛЬ: Список друзів */}
-      <div className="hidden md:flex flex-col w-72 lg:w-80 h-full flex-shrink-0 animate-slide-up">
-        <FriendList currentUser={username} />
-      </div>
+              {/* Input Area */}
+              <ChatInput
+                inputText={inputText}
+                replyTo={replyTo}
+                selectedTtl={selectedTtl}
+                isRecordingVoice={isRecordingVoice}
+                inputRef={inputRef}
+                onInputChange={handleInputChange}
+                onSendMessage={handleSendMessage}
+                onCancelReply={() => setReplyTo(null)}
+                onSelectTtl={(ttl) => setSelectedTtl(ttl)}
+                onStartVoiceRecording={startVoiceRecording}
+                onStopVoiceRecording={stopVoiceRecording}
+                onSendFile={handleSendFile}
+              />
+            </div>
+          );
+        })}
 
     </div>
 

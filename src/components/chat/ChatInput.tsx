@@ -96,11 +96,12 @@ export const ChatInput = memo(function ChatInput({
         <input 
           type="file" 
           ref={fileInputRef} 
+          multiple
           className="hidden" 
           onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file && onSendFile) {
-              onSendFile(file);
+            const files = Array.from(e.target.files || []);
+            if (files.length > 0 && onSendFile) {
+              files.forEach(file => onSendFile(file));
               if (fileInputRef.current) fileInputRef.current.value = '';
             }
           }} 
@@ -108,10 +109,10 @@ export const ChatInput = memo(function ChatInput({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all bg-zinc-900/80 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+          className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all bg-zinc-800/90 text-zinc-300 hover:text-white hover:bg-blue-600/20 border border-zinc-700/60 hover:border-blue-500/50 shadow-md active:scale-95 flex-shrink-0"
           title="Прикріпити фото / відео / файл"
         >
-          <Paperclip className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-400" />
+          <Paperclip className="w-5 h-5 sm:w-6 sm:h-6 text-zinc-300" />
         </button>
 
         <Input

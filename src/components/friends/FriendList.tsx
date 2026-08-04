@@ -28,23 +28,23 @@ const FriendListItem = memo(function FriendListItem({
   return (
     <div 
       onClick={() => onStartChat(friend.username)}
-      className="flex items-center justify-between p-2.5 rounded-xl hover:bg-zinc-800/60 group transition-all cursor-pointer border border-transparent hover:border-zinc-800"
+      className="flex items-center justify-between p-3 rounded-xl hover:bg-zinc-800/80 group transition-all cursor-pointer border border-transparent hover:border-zinc-700/50 shadow-sm"
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3.5">
         <div className="relative">
-          <img src={friend.avatar} alt={friend.displayName} className="w-10 h-10 rounded-xl bg-zinc-800 object-cover" />
+          <img src={friend.avatar} alt={friend.displayName} className="w-12 h-12 rounded-xl bg-zinc-800 object-cover shadow-md" />
           <div className="absolute -bottom-1 -right-1 z-10">
             <DitheringStatusIndicator isOnline={friend.isOnline} size="sm" />
           </div>
         </div>
         <div>
-          <p className="text-zinc-100 font-medium text-sm leading-tight group-hover:text-blue-400 transition-colors">{friend.displayName}</p>
-          <p className="text-zinc-500 text-xs">{friend.isOnline ? 'Online' : 'Offline'}</p>
+          <p className="text-zinc-100 font-semibold text-base leading-tight group-hover:text-blue-400 transition-colors">{friend.displayName}</p>
+          <p className="text-zinc-400 text-xs font-medium mt-0.5">{friend.isOnline ? 'Online' : 'Offline'}</p>
         </div>
       </div>
       <div className="flex items-center gap-3">
         {friend.unreadCount ? (
-          <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-md">
+          <span className="bg-blue-600 text-white text-xs font-bold px-2.5 py-0.5 rounded-full min-w-[22px] text-center shadow-md">
             {friend.unreadCount}
           </span>
         ) : null}
@@ -52,14 +52,14 @@ const FriendListItem = memo(function FriendListItem({
           <Button 
             variant="ghost" 
             size="icon" 
-            className="w-8 h-8 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg" 
+            className="w-9 h-9 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-xl transition-colors" 
             onClick={(e) => {
               e.stopPropagation();
               onRemoveFriend(friend.username);
             }}
             title="Видалити з друзів"
           >
-            <UserMinus className="w-4 h-4" />
+            <UserMinus className="w-5 h-5" />
           </Button>
         </div>
       </div>
@@ -226,10 +226,12 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
 
   return (
     <div className="w-full h-full flex flex-col bg-zinc-900/50 rounded-2xl border border-zinc-800/50 overflow-hidden relative">
-      <div className="p-4 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-950/50">
-        <h3 className="font-semibold text-zinc-100">Мої друзі</h3>
-        <Button variant="ghost" size="icon" onClick={() => setShowAddModal(true)} className="text-zinc-400 hover:text-white">
-          <Plus className="w-5 h-5" />
+      <div className="p-4 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-950/60">
+        <h3 className="font-bold text-zinc-100 text-base sm:text-lg flex items-center gap-2">
+          Мої друзі
+        </h3>
+        <Button variant="ghost" size="icon" onClick={() => setShowAddModal(true)} className="w-10 h-10 text-zinc-300 hover:text-white hover:bg-zinc-800/80 rounded-xl transition-all" title="Додати друга">
+          <Plus className="w-6 h-6 text-blue-400" />
         </Button>
       </div>
 
