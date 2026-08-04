@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useSyncExternalStore } from 'react';
-import { GrainGradient } from '@paper-design/shaders-react';
 
 const subscribe = () => () => {};
 const getSnapshot = () => true;
@@ -22,56 +21,71 @@ const fragmentShaderSource = `
   uniform vec3 u_color1;
   uniform vec3 u_color2;
   uniform vec3 u_color3;
+  uniform int u_mode;
 
-  vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-  vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-  vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+  float rand(vec2 co) {
+    return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+  }
 
-  float snoise(vec2 v) {
-    const vec4 C = vec4(0.211324865405187,
-                        0.366025403784439,
-                       -0.577350269189626,
-                        0.024390243902439);
-    vec2 i  = floor(v + dot(v, C.yy) );
-    vec2 x0 = v -   i + dot(i, C.xx);
-    vec2 i1;
-    i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-    vec4 x12 = x0.xyxy + C.xxzz;
-    x12.xy -= i1;
-    i = mod289(i);
-    vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
-      + i.x + vec3(0.0, i1.x, 1.0 ));
-    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
-    m = m*m ;
-    m = m*m ;
-    vec3 x = 2.0 * fract(p * C.www) - 1.0;
-    vec3 h = abs(x) - 0.5;
-    vec3 ox = floor(x + 0.5);
-    vec3 a0 = x - ox;
-    m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
-    vec3 g;
-    g.x  = a0.x  * x0.x  + h.x  * x0.y;
-    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-    return 130.0 * dot(m, g);
+  float hash(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+  }
+
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
   }
 
   void main() {
     vec2 st = gl_FragCoord.xy / u_resolution.xy;
-    st.x *= u_resolution.x / u_resolution.y;
+    float aspect = u_resolution.x / u_resolution.y;
+    vec2 uv = st;
+    uv.x *= aspect;
 
-    float t = u_time * 0.15;
-    
-    float n1 = snoise(st * 2.0 + t);
-    float n2 = snoise(st * 1.5 - t * 0.8 + vec2(100.0));
-    float n3 = snoise(st * 3.0 + t * 0.5 - vec2(50.0));
-    
-    float n = n1 * 0.5 + n2 * 0.3 + n3 * 0.2;
-    n = n * 0.5 + 0.5;
-    
-    vec3 color = mix(u_color1, u_color2, smoothstep(0.0, 0.5, n));
-    color = mix(color, u_color3, smoothstep(0.5, 1.0, n));
-    
-    gl_FragColor = vec4(color, 1.0);
+    float t = u_time * 0.12;
+    vec3 color = u_color1;
+
+    if (u_mode == 0) {
+      // FLUID MODE
+      float n1 = noise(uv * 1.5 + vec2(t * 0.4, t * 0.2));
+      float n2 = noise(uv * 2.2 - vec2(t * 0.3, t * 0.5));
+      float n = mix(n1, n2, 0.5);
+      color = mix(u_color1, u_color2, smoothstep(0.1, 0.6, n));
+      color = mix(color, u_color3, smoothstep(0.5, 0.9, n));
+    } else if (u_mode == 1) {
+      // GRAIN CORNERS MODE
+      float distTL = length(st - vec2(0.0, 1.0));
+      float distBR = length(st - vec2(1.0, 0.0));
+      color = mix(u_color1, u_color2, smoothstep(0.1, 1.1, distTL));
+      color = mix(color, u_color3, smoothstep(0.1, 1.1, distBR));
+    } else if (u_mode == 2) {
+      // GRAIN WAVE MODE
+      float wave = sin(st.x * 3.0 + st.y * 2.0 + t * 1.5) * 0.5 + 0.5;
+      color = mix(u_color1, u_color2, wave);
+      color = mix(color, u_color3, smoothstep(0.2, 0.8, noise(uv * 2.0 + t)));
+    } else {
+      // GRAIN BLOB MODE
+      vec2 p1 = vec2(0.3 + 0.2 * sin(t * 0.7), 0.4 + 0.2 * cos(t * 0.5));
+      vec2 p2 = vec2(0.7 + 0.2 * cos(t * 0.6), 0.6 + 0.2 * sin(t * 0.8));
+      float d1 = smoothstep(0.65, 0.0, length(st - p1));
+      float d2 = smoothstep(0.65, 0.0, length(st - p2));
+      color = mix(u_color1, u_color2, d1);
+      color = mix(color, u_color3, d2);
+    }
+
+    // Subtle background grain
+    float grain = (rand(gl_FragCoord.xy + fract(u_time * 0.05)) - 0.5) * 0.035;
+    color += grain;
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
   }
 `;
 
@@ -85,37 +99,24 @@ const hexToRgb = (hex: string) => {
 };
 
 const THEMES: Record<string, string[]> = {
-  default: ['#09090b', '#18181b', '#09090b'],
+  default: ['#09090b', '#18181b', '#27272a'],
   ocean: ['#020617', '#1e3a8a', '#0891b2'],
   cyberpunk: ['#2e1065', '#be185d', '#3b0764'],
   forest: ['#022c22', '#047857', '#064e3b'],
   rose: ['#4c0519', '#e11d48', '#881337'],
 };
 
-const GRAIN_THEMES: Record<string, { colors: string[]; colorBack: string }> = {
-  default: {
-    colors: ['#18181b', '#27272a', '#3f3f46', '#18181b'],
-    colorBack: '#09090b',
-  },
-  ocean: {
-    colors: ['#020617', '#1e3a8a', '#00bfff', '#2563eb'],
-    colorBack: '#020617',
-  },
-  cyberpunk: {
-    colors: ['#7300ff', '#eba8ff', '#00bfff', '#2b00ff'],
-    colorBack: '#000000',
-  },
-  forest: {
-    colors: ['#022c22', '#047857', '#10b981', '#064e3b'],
-    colorBack: '#021c16',
-  },
-  rose: {
-    colors: ['#4c0519', '#e11d48', '#f43f5e', '#881337'],
-    colorBack: '#1a0208',
-  },
-};
-
 export type ShaderType = 'fluid' | 'grain-corners' | 'grain-wave' | 'grain-blob';
+
+const getShaderModeInt = (type: ShaderType): number => {
+  switch (type) {
+    case 'grain-corners': return 1;
+    case 'grain-wave': return 2;
+    case 'grain-blob': return 3;
+    case 'fluid':
+    default: return 0;
+  }
+};
 
 export const ShaderBackground = ({
   theme,
@@ -130,12 +131,18 @@ export const ShaderBackground = ({
   const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
-    if (shaderType !== 'fluid' || isPaused) return;
+    if (isPaused) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const gl = canvas.getContext('webgl', { powerPreference: 'low-power', preserveDrawingBuffer: false });
+    const gl = canvas.getContext('webgl', { 
+      powerPreference: 'low-power', 
+      preserveDrawingBuffer: false,
+      alpha: false,
+      antialias: false,
+    });
+
     if (!gl) {
       console.warn('WebGL not supported');
       return;
@@ -191,17 +198,18 @@ export const ShaderBackground = ({
     const color1Location = gl.getUniformLocation(program, 'u_color1');
     const color2Location = gl.getUniformLocation(program, 'u_color2');
     const color3Location = gl.getUniformLocation(program, 'u_color3');
+    const modeLocation = gl.getUniformLocation(program, 'u_mode');
 
-    // Downscale internal canvas resolution to 720p max to save 80%+ GPU cycles
+    // Downscale internal resolution to 640x360 (360p) for ultra-light zero-lag 60fps rendering
     const resize = () => {
-      const maxW = 1280;
-      const maxH = 720;
-      const scale = Math.min(1, maxW / window.innerWidth, maxH / window.innerHeight);
-      canvas.width = Math.max(320, Math.floor(window.innerWidth * scale));
-      canvas.height = Math.max(240, Math.floor(window.innerHeight * scale));
+      const targetW = Math.min(640, Math.floor(window.innerWidth * 0.5));
+      const targetH = Math.min(360, Math.floor(window.innerHeight * 0.5));
+      canvas.width = Math.max(320, targetW);
+      canvas.height = Math.max(240, targetH);
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
     };
+
     window.addEventListener('resize', resize);
     resize();
 
@@ -213,23 +221,17 @@ export const ShaderBackground = ({
     gl.uniform3f(color1Location, rgb1[0], rgb1[1], rgb1[2]);
     gl.uniform3f(color2Location, rgb2[0], rgb2[1], rgb2[2]);
     gl.uniform3f(color3Location, rgb3[0], rgb3[1], rgb3[2]);
+    gl.uniform1i(modeLocation, getShaderModeInt(shaderType));
 
     let animationFrameId: number;
     const startTime = performance.now();
-    let lastFrameTime = 0;
-    const targetFpsInterval = 1000 / 30; // 30 FPS cap for smooth low-GPU wallpaper rendering
     let isHidden = false;
 
     const render = (time: number) => {
       if (isHidden) return;
-      animationFrameId = requestAnimationFrame(render);
-
-      const delta = time - lastFrameTime;
-      if (delta < targetFpsInterval) return;
-
-      lastFrameTime = time - (delta % targetFpsInterval);
       gl.uniform1f(timeLocation, (time - startTime) * 0.001);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
+      animationFrameId = requestAnimationFrame(render);
     };
 
     const handleVisibilityChange = () => {
@@ -258,32 +260,10 @@ export const ShaderBackground = ({
 
   if (!mounted) return null;
 
-  if (shaderType.startsWith('grain')) {
-    const grainConfig = GRAIN_THEMES[theme] || GRAIN_THEMES.default;
-    const shape = (shaderType.replace('grain-', '') || 'corners') as 'corners' | 'wave' | 'blob';
-
-    return (
-      <div className="fixed inset-0 w-full h-full -z-10 overflow-hidden pointer-events-none">
-        <GrainGradient
-          width="100vw"
-          height="100vh"
-          colors={grainConfig.colors}
-          colorBack={grainConfig.colorBack}
-          softness={0.5}
-          intensity={0.5}
-          noise={0.25}
-          shape={shape}
-          speed={1}
-          fit="cover"
-        />
-      </div>
-    );
-  }
-
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 w-full h-full -z-10"
+      className="fixed inset-0 w-full h-full -z-10 transition-opacity duration-700"
       style={{ pointerEvents: 'none' }}
     />
   );
