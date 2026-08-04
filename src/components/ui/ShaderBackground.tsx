@@ -216,13 +216,20 @@ export const ShaderBackground = ({
 
     let animationFrameId: number;
     const startTime = performance.now();
+    let lastFrameTime = 0;
+    const targetFpsInterval = 1000 / 24; // 24 FPS cap for cinema-smooth, low-GPU rendering
     let isHidden = false;
 
     const render = (time: number) => {
       if (isHidden) return;
+      animationFrameId = requestAnimationFrame(render);
+
+      const delta = time - lastFrameTime;
+      if (delta < targetFpsInterval) return;
+
+      lastFrameTime = time - (delta % targetFpsInterval);
       gl.uniform1f(timeLocation, (time - startTime) * 0.001);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
-      animationFrameId = requestAnimationFrame(render);
     };
 
     const handleVisibilityChange = () => {
