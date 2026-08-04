@@ -1330,7 +1330,7 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
 
   return (
     <>
-      <ShaderBackground theme={theme} shaderType={shaderType} />
+      <ShaderBackground theme={theme} shaderType={shaderType} isPaused={callState !== 'idle'} />
       {pendingOffer && (
         <FileTransferModal 
           senderName={pendingOffer.sender}

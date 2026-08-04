@@ -120,20 +120,22 @@ export type ShaderType = 'fluid' | 'grain-corners' | 'grain-wave' | 'grain-blob'
 export const ShaderBackground = ({
   theme,
   shaderType = 'fluid',
+  isPaused = false,
 }: {
   theme: string;
   shaderType?: ShaderType;
+  isPaused?: boolean;
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
-    if (shaderType !== 'fluid') return;
+    if (shaderType !== 'fluid' || isPaused) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const gl = canvas.getContext('webgl');
+    const gl = canvas.getContext('webgl', { powerPreference: 'low-power', preserveDrawingBuffer: false });
     if (!gl) {
       console.warn('WebGL not supported');
       return;
@@ -190,9 +192,13 @@ export const ShaderBackground = ({
     const color2Location = gl.getUniformLocation(program, 'u_color2');
     const color3Location = gl.getUniformLocation(program, 'u_color3');
 
+    // Downscale internal canvas resolution to 720p max to save 80%+ GPU cycles
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const maxW = 1280;
+      const maxH = 720;
+      const scale = Math.min(1, maxW / window.innerWidth, maxH / window.innerHeight);
+      canvas.width = Math.max(320, Math.floor(window.innerWidth * scale));
+      canvas.height = Math.max(240, Math.floor(window.innerHeight * scale));
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
     };
@@ -210,13 +216,20 @@ export const ShaderBackground = ({
 
     let animationFrameId: number;
     const startTime = performance.now();
+    let lastFrameTime = 0;
+    const targetFpsInterval = 1000 / 30; // 30 FPS cap for smooth low-GPU wallpaper rendering
     let isHidden = false;
 
     const render = (time: number) => {
       if (isHidden) return;
+      animationFrameId = requestAnimationFrame(render);
+
+      const delta = time - lastFrameTime;
+      if (delta < targetFpsInterval) return;
+
+      lastFrameTime = time - (delta % targetFpsInterval);
       gl.uniform1f(timeLocation, (time - startTime) * 0.001);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
-      animationFrameId = requestAnimationFrame(render);
     };
 
     const handleVisibilityChange = () => {
@@ -241,7 +254,7 @@ export const ShaderBackground = ({
       gl.deleteShader(fragmentShader);
       gl.deleteBuffer(positionBuffer);
     };
-  }, [theme, shaderType]);
+  }, [theme, shaderType, isPaused]);
 
   if (!mounted) return null;
 
