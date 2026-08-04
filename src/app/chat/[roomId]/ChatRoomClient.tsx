@@ -847,7 +847,10 @@ export default function ChatRoomClient({ roomId, initialHistory }: { roomId: str
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     if (!targetUsername) return;
-    setIsDragging(true);
+    // Only trigger File Transfer overlay if actual OS files are being dragged from computer
+    if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+      setIsDragging(true);
+    }
   }, [targetUsername]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
