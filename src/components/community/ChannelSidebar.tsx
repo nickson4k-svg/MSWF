@@ -173,7 +173,7 @@ export function ChannelSidebar({ server, activeChannelId, onSelectChannel, curre
                 <Radio className="w-4 h-4 text-emerald-400 animate-pulse flex-shrink-0" />
                 <div className="flex flex-col text-left truncate">
                   <span className="text-[11px] font-bold text-emerald-400 leading-none">
-                    Голосовий зв'язок підключено
+                    Голосовий зв&apos;язок підключено
                   </span>
                   <span className="text-[10px] text-zinc-400 truncate mt-0.5">
                     Бабелан / {server.name}
