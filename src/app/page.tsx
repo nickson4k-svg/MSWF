@@ -197,15 +197,6 @@ export default function Home() {
               >
                 Створити нову кімнату
               </Button>
-
-              <Button 
-                type="button" 
-                onClick={() => router.push('/community')}
-                className="w-full h-12 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-medium shadow-lg shadow-purple-900/30 transition-all group"
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Спільноти та Групи (Discord Style)
-              </Button>
             </form>
           ) : (
             <div className="space-y-4">

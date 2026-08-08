@@ -206,7 +206,11 @@ export function CommunityLayout() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#1e1f22] text-[#dbdee1] font-sans overflow-hidden antialiased">
+    <div className="flex h-screen w-screen bg-zinc-950 text-zinc-100 font-sans overflow-hidden antialiased relative">
+      {/* Background Ambient Blur Glows */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[140px] pointer-events-none" />
+
       {/* 1. Server Rail (Leftmost ~72px) */}
       <ServerRail 
         servers={servers}

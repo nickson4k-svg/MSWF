@@ -14,21 +14,21 @@ export function MembersSidebar({ members }: MembersSidebarProps) {
 
   const getStatusColor = (status: Member['status']) => {
     switch (status) {
-      case 'online': return 'bg-[#23a55a]';
-      case 'dnd': return 'bg-[#f23f43]';
-      case 'idle': return 'bg-[#f0b232]';
-      default: return 'bg-[#80848e]';
+      case 'online': return 'bg-emerald-500';
+      case 'dnd': return 'bg-red-500';
+      case 'idle': return 'bg-amber-400';
+      default: return 'bg-zinc-500';
     }
   };
 
   return (
-    <div className="w-[240px] bg-[#2b2d31] flex flex-col h-full flex-shrink-0 select-none overflow-y-auto px-3 py-4 space-y-6 no-scrollbar border-l border-[#1f2023]/40 z-10">
+    <div className="w-[240px] bg-zinc-900/80 backdrop-blur-xl flex flex-col h-full flex-shrink-0 select-none overflow-y-auto px-3 py-4 space-y-5 no-scrollbar border-l border-zinc-800/60 z-10">
       {/* Activity Feed Section */}
       {activeMembers.length > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-[#949ba4] hover:text-[#dbdee1] cursor-pointer group">
-            <h3 className="text-xs font-bold uppercase tracking-wider">
-              Активность — {activeMembers.length}
+          <div className="flex items-center justify-between text-zinc-400 hover:text-zinc-200 cursor-pointer group px-1">
+            <h3 className="text-[11px] font-bold uppercase tracking-wider">
+              Активність — {activeMembers.length}
             </h3>
             <Settings className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
@@ -37,36 +37,36 @@ export function MembersSidebar({ members }: MembersSidebarProps) {
             {activeMembers.map((m) => (
               <div 
                 key={m.id} 
-                className="bg-[#1e1f22] p-2.5 rounded-lg border border-[#383a40]/60 hover:border-[#5865f2]/50 transition-all cursor-pointer group"
+                className="bg-zinc-950/60 p-2.5 rounded-2xl border border-zinc-800/80 hover:border-blue-500/40 transition-all cursor-pointer group shadow-md"
               >
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                   <div className="flex items-center gap-2 truncate">
                     <img 
                       src={m.avatarUrl} 
                       alt={m.name} 
-                      className="w-5 h-5 rounded-full object-cover" 
+                      className="w-5 h-5 rounded-full object-cover border border-zinc-700" 
                     />
                     <span 
                       className="text-xs font-semibold truncate hover:underline"
-                      style={{ color: m.roleColor || '#f23f43' }}
+                      style={{ color: m.roleColor || '#ef4444' }}
                     >
                       {m.name}
                     </span>
                   </div>
-                  <Gamepad2 className="w-4 h-4 text-[#5865f2] flex-shrink-0" />
+                  <Gamepad2 className="w-4 h-4 text-blue-400 flex-shrink-0" />
                 </div>
 
-                <div className="bg-[#2b2d31] p-2 rounded flex items-center justify-between">
+                <div className="bg-zinc-900/90 p-2 rounded-xl border border-zinc-800 flex items-center justify-between">
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-bold text-white truncate">
+                    <div className="text-xs font-bold text-zinc-100 truncate">
                       {m.activity?.game}
                     </div>
-                    <div className="text-[10px] text-[#23a55a] font-medium truncate flex items-center gap-1 mt-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#23a55a] animate-pulse" />
-                      {m.activity?.duration || 'Новый игрок'}
+                    <div className="text-[10px] text-emerald-400 font-medium truncate flex items-center gap-1 mt-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      {m.activity?.duration || 'Новий гравець'}
                     </div>
                   </div>
-                  <div className="w-8 h-8 rounded bg-[#1e1f22] border border-[#383a40] flex items-center justify-center font-bold text-[10px] text-white uppercase ml-2 flex-shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-center font-bold text-[10px] text-zinc-300 uppercase ml-2 flex-shrink-0">
                     {m.activity?.game.substring(0, 3)}
                   </div>
                 </div>
@@ -78,43 +78,43 @@ export function MembersSidebar({ members }: MembersSidebarProps) {
 
       {/* Online Members List */}
       <div className="space-y-1">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[#949ba4] px-1 mb-1">
-          В сети — {onlineMembers.length}
+        <h3 className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 px-1 mb-1">
+          В мережі — {onlineMembers.length}
         </h3>
 
         {onlineMembers.map((m) => (
           <div 
             key={m.id} 
-            className="flex items-center gap-2.5 px-2 py-1.5 rounded hover:bg-[#35373c] transition-colors cursor-pointer group"
+            className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-zinc-800/60 transition-colors cursor-pointer group"
           >
             <div className="relative flex-shrink-0">
               <img 
                 src={m.avatarUrl} 
                 alt={m.name} 
-                className="w-8 h-8 rounded-full object-cover" 
+                className="w-7 h-7 rounded-full object-cover border border-zinc-700" 
               />
-              <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ${getStatusColor(m.status)} border-2 border-[#2b2d31]`} />
+              <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ${getStatusColor(m.status)} border-2 border-zinc-900`} />
             </div>
 
             <div className="flex flex-col truncate leading-tight min-w-0">
               <div className="flex items-center gap-1.5">
                 <span 
-                  className="text-sm font-medium truncate group-hover:underline"
-                  style={{ color: m.roleColor || '#dbdee1' }}
+                  className="text-xs font-semibold truncate group-hover:underline"
+                  style={{ color: m.roleColor || '#f4f4f5' }}
                 >
                   {m.name}
                 </span>
                 {m.isBot && (
-                  <span className="bg-[#5865f2] text-white text-[9px] font-bold px-1 rounded uppercase tracking-wider">
+                  <span className="bg-blue-600 text-white text-[8px] font-bold px-1 rounded uppercase tracking-wider shadow-sm">
                     БОТ
                   </span>
                 )}
               </div>
 
               {m.customStatus && (
-                <span className="text-xs text-[#949ba4] truncate flex items-center gap-1">
-                  {m.customStatus.includes('голосовом') && (
-                    <Volume2 className="w-3 h-3 text-[#23a55a] inline flex-shrink-0" />
+                <span className="text-[10px] text-zinc-400 truncate flex items-center gap-1">
+                  {m.customStatus.includes('голосовому') && (
+                    <Volume2 className="w-2.5 h-2.5 text-emerald-400 inline flex-shrink-0" />
                   )}
                   {m.customStatus}
                 </span>
@@ -125,26 +125,26 @@ export function MembersSidebar({ members }: MembersSidebarProps) {
       </div>
 
       {/* Offline Members List */}
-      <div className="space-y-1 pt-2">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[#949ba4] px-1 mb-1">
-          Не в сети — {offlineMembers.length}
+      <div className="space-y-1 pt-1">
+        <h3 className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 px-1 mb-1">
+          Не в мережі — {offlineMembers.length}
         </h3>
 
         {offlineMembers.map((m) => (
           <div 
             key={m.id} 
-            className="flex items-center gap-2.5 px-2 py-1.5 rounded hover:bg-[#35373c]/50 transition-colors cursor-pointer opacity-50 hover:opacity-100"
+            className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-zinc-800/40 transition-colors cursor-pointer opacity-50 hover:opacity-90"
           >
             <div className="relative flex-shrink-0">
               <img 
                 src={m.avatarUrl} 
                 alt={m.name} 
-                className="w-8 h-8 rounded-full object-cover grayscale" 
+                className="w-7 h-7 rounded-full object-cover grayscale" 
               />
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#80848e] border-2 border-[#2b2d31]" />
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-zinc-500 border-2 border-zinc-900" />
             </div>
 
-            <span className="text-sm font-medium text-[#949ba4] truncate">
+            <span className="text-xs font-medium text-zinc-400 truncate">
               {m.name}
             </span>
           </div>
