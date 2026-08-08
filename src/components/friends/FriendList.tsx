@@ -23,29 +23,7 @@ export interface GroupItem {
   unreadCount?: number;
 }
 
-const DEFAULT_GROUPS: GroupItem[] = [
-  {
-    id: 'grp-1',
-    name: 'Наркомани',
-    avatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=Narkomany',
-    membersCount: 5,
-    unreadCount: 3
-  },
-  {
-    id: 'grp-2',
-    name: 'Dark Souls Online',
-    avatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=DarkSouls',
-    membersCount: 12,
-    unreadCount: 2
-  },
-  {
-    id: 'grp-3',
-    name: 'Cyberpub 2077',
-    avatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=Cyberpub',
-    membersCount: 8,
-    unreadCount: 46
-  }
-];
+const DEFAULT_GROUPS: GroupItem[] = [];
 
 interface FriendListItemProps {
   friend: FriendWithStatus;

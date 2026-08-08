@@ -72,66 +72,7 @@ const MOCK_MEMBERS: Member[] = [
   }
 ];
 
-const INITIAL_SERVERS: Server[] = [
-  {
-    id: 'srv-1',
-    name: 'Наркомани',
-    initials: 'НМ',
-    iconUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=Narkomany',
-    unreadCount: 3,
-    channels: {
-      text: [
-        { id: 'ch-1', type: 'text', name: 'мет-меседж' },
-        { id: 'ch-2', type: 'text', name: 'флуділка', unread: true }
-      ],
-      voice: [
-        { 
-          id: 'ch-3', 
-          type: 'voice', 
-          name: 'Бабелан',
-          connectedUsers: [
-            {
-              id: 'u4',
-              name: 'Слот СІТІ',
-              avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=SlotCity',
-              status: 'online'
-            },
-            {
-              id: 'u5',
-              name: 'ХохлоПоляк',
-              avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=HohloPolyak',
-              status: 'online',
-              customStatus: 'S1'
-            }
-          ]
-        },
-        { id: 'ch-4', type: 'voice', name: 'пабг-дрочерс' }
-      ]
-    }
-  },
-  {
-    id: 'srv-2',
-    name: 'Dark Souls Online',
-    initials: 'DS',
-    iconUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=DarkSouls',
-    unreadCount: 2,
-    channels: {
-      text: [{ id: 'ch-201', type: 'text', name: 'головний' }],
-      voice: [{ id: 'ch-202', type: 'voice', name: 'Багаття' }]
-    }
-  },
-  {
-    id: 'srv-3',
-    name: 'Cyberpub 2077',
-    initials: 'CP',
-    iconUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=Cyberpub',
-    unreadCount: 46,
-    channels: {
-      text: [{ id: 'ch-301', type: 'text', name: 'бар' }],
-      voice: []
-    }
-  }
-];
+const INITIAL_SERVERS: Server[] = [];
 
 const INITIAL_MESSAGES: Message[] = [
   {
