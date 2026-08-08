@@ -1,7 +1,7 @@
 'use client';
 
 import { Member } from './types';
-import { ChevronRight, Settings, Gamepad2, Volume2 } from 'lucide-react';
+import { Settings, Gamepad2, Volume2 } from 'lucide-react';
 
 interface MembersSidebarProps {
   members: Member[];

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Server, Channel } from './types';
+import { Server } from './types';
 import { 
   ChevronDown, ChevronRight, Hash, Volume2, Calendar, Rocket, 
   Plus, UserPlus, Mic, MicOff, Headphones, Settings, Radio, 

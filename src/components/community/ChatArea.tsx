@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Message, Channel } from './types';
 import { 
   Hash, Bell, Pin, Users, Search, Inbox, HelpCircle, PlusCircle, 
-  Gift, Sticker, Smile, Play, Send, Image as ImageIcon
+  Gift, Sticker, Smile, Play, Send
 } from 'lucide-react';
 
 interface ChatAreaProps {
