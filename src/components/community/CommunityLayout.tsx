@@ -1,12 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Server, Message, Member } from './types';
 import { ServerRail } from './ServerRail';
 import { ChannelSidebar } from './ChannelSidebar';
 import { ChatArea } from './ChatArea';
 import { MembersSidebar } from './MembersSidebar';
 import { CreateServerModal } from './CreateServerModal';
+import { GroupHeader, GroupTab } from './GroupHeader';
+import { LeaveGroupModal } from './LeaveGroupModal';
+import { GroupMediaGallery } from './GroupMediaGallery';
+import { GroupVoiceLounges } from './GroupVoiceLounges';
+import { GroupMembersTab } from './GroupMembersTab';
 
 const MOCK_MEMBERS: Member[] = [
   {
@@ -30,14 +36,14 @@ const MOCK_MEMBERS: Member[] = [
     avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=WD40',
     status: 'online',
     isBot: true,
-    customStatus: 'Do you know who else suffers from...'
+    customStatus: 'робочий режим активний'
   },
   {
     id: 'u4',
     name: 'Слот СІТІ',
     avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=SlotCity',
     status: 'online',
-    customStatus: 'В голосовом чате',
+    customStatus: 'У голосовому чаті',
     roleColor: '#ff9800'
   },
   {
@@ -49,7 +55,7 @@ const MOCK_MEMBERS: Member[] = [
     roleColor: '#4caf50',
     activity: {
       game: 'SCP: Containment Breach',
-      duration: '2 д. назад · Новый игрок'
+      duration: '2 д. назад · Новий гравець'
     }
   },
   {
@@ -110,8 +116,8 @@ const INITIAL_SERVERS: Server[] = [
     iconUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=DarkSouls',
     unreadCount: 2,
     channels: {
-      text: [{ id: 'ch-201', type: 'text', name: 'general' }],
-      voice: [{ id: 'ch-202', type: 'voice', name: 'Bonfire' }]
+      text: [{ id: 'ch-201', type: 'text', name: 'головний' }],
+      voice: [{ id: 'ch-202', type: 'voice', name: 'Багаття' }]
     }
   },
   {
@@ -121,7 +127,7 @@ const INITIAL_SERVERS: Server[] = [
     iconUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=Cyberpub',
     unreadCount: 46,
     channels: {
-      text: [{ id: 'ch-301', type: 'text', name: 'lounge' }],
+      text: [{ id: 'ch-301', type: 'text', name: 'бар' }],
       voice: []
     }
   }
@@ -151,22 +157,41 @@ const INITIAL_MESSAGES: Message[] = [
       author: 'ЦиціБога',
       title: 'ВИШНІ Status///REMAKE',
       thumbnailUrl: '/youtube_thumb.png',
-      accentColor: '#f23f43'
+      accentColor: '#ef4444'
     }
   }
 ];
 
 export function CommunityLayout() {
+  const router = useRouter();
   const [servers, setServers] = useState<Server[]>(INITIAL_SERVERS);
   const [activeServerId, setActiveServerId] = useState<string>('srv-1');
   const [activeChannelId, setActiveChannelId] = useState<string>('ch-1');
+  const [activeTab, setActiveTab] = useState<GroupTab>('chat');
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [showMembersPanel, setShowMembersPanel] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
 
   const activeServer = servers.find(s => s.id === activeServerId) || servers[0];
+  
+  if (!activeServer) {
+    return (
+      <div className="flex h-screen w-screen bg-zinc-950 text-white items-center justify-center flex-col p-4">
+        <h2 className="text-xl font-bold mb-2">У вас немає активних груп</h2>
+        <p className="text-sm text-zinc-400 mb-4">Створіть нову групу або приєднайтеся за посиланням</p>
+        <button 
+          onClick={() => router.push('/')}
+          className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-all"
+        >
+          Повернутися на головну
+        </button>
+      </div>
+    );
+  }
+
   const allChannels = [...activeServer.channels.text, ...activeServer.channels.voice];
-  const activeChannel = allChannels.find(c => c.id === activeChannelId) || activeServer.channels.text[0];
+  const activeChannel = allChannels.find(c => c.id === activeChannelId) || activeServer.channels.text[0] || { id: 'ch-fallback', type: 'text', name: 'загальний' };
 
   const handleSendMessage = (text: string) => {
     const newMsg: Message = {
@@ -205,13 +230,31 @@ export function CommunityLayout() {
     setActiveChannelId(newServer.channels.text[0].id);
   };
 
+  const handleConfirmLeaveGroup = () => {
+    const targetId = activeServerId;
+    const remaining = servers.filter(s => s.id !== targetId);
+    setServers(remaining);
+    setIsLeaveModalOpen(false);
+
+    if (remaining.length > 0) {
+      setActiveServerId(remaining[0].id);
+      if (remaining[0].channels.text.length > 0) {
+        setActiveChannelId(remaining[0].channels.text[0].id);
+      }
+    } else {
+      router.push('/');
+    }
+  };
+
+  const onlineMembersCount = MOCK_MEMBERS.filter(m => m.status !== 'offline').length;
+
   return (
     <div className="flex h-screen w-screen bg-zinc-950 text-zinc-100 font-sans overflow-hidden antialiased relative">
       {/* Background Ambient Blur Glows */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[140px] pointer-events-none" />
 
-      {/* 1. Server Rail (Leftmost ~72px) */}
+      {/* 1. Leftmost Server / Group Rail (~72px) */}
       <ServerRail 
         servers={servers}
         activeServerId={activeServerId}
@@ -225,37 +268,73 @@ export function CommunityLayout() {
         onOpenCreateModal={() => setIsCreateModalOpen(true)}
       />
 
-      {/* 2. Channel Sidebar (~240px) */}
-      <ChannelSidebar 
-        server={activeServer}
-        activeChannelId={activeChannelId}
-        onSelectChannel={(chId) => setActiveChannelId(chId)}
-        currentUser={{
-          name: 'NicoNico',
-          avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NicoNico',
-          status: 'online'
-        }}
-      />
+      {/* Main Container */}
+      <div className="flex-1 flex flex-col min-w-0 h-full">
+        {/* Top Header with Group Info, Tab Switcher & Leave Group Menu */}
+        <GroupHeader
+          groupName={activeServer.name}
+          groupAvatar={activeServer.iconUrl}
+          onlineCount={onlineMembersCount}
+          totalCount={MOCK_MEMBERS.length}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onOpenLeaveModal={() => setIsLeaveModalOpen(true)}
+        />
 
-      {/* 3. Main Chat Area (flex-1) */}
-      <ChatArea 
-        channel={activeChannel}
-        messages={messages}
-        onSendMessage={handleSendMessage}
-        toggleMembersPanel={() => setShowMembersPanel(!showMembersPanel)}
-        showMembersPanel={showMembersPanel}
-      />
+        {/* Dynamic Tab Body */}
+        <div className="flex-1 flex min-w-0 overflow-hidden relative">
+          {activeTab === 'chat' && (
+            <>
+              {/* Channel Sidebar (~240px) */}
+              <ChannelSidebar 
+                server={activeServer}
+                activeChannelId={activeChannelId}
+                onSelectChannel={(chId) => setActiveChannelId(chId)}
+                currentUser={{
+                  name: 'NicoNico',
+                  avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NicoNico',
+                  status: 'online'
+                }}
+              />
 
-      {/* 4. Right Members & Activity Sidebar (~240px) */}
-      {showMembersPanel && (
-        <MembersSidebar members={MOCK_MEMBERS} />
-      )}
+              {/* Main Chat Area */}
+              <ChatArea 
+                channel={activeChannel}
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                toggleMembersPanel={() => setShowMembersPanel(!showMembersPanel)}
+                showMembersPanel={showMembersPanel}
+              />
 
-      {/* Create Server / Group Modal */}
+              {/* Right Members Sidebar */}
+              {showMembersPanel && (
+                <MembersSidebar members={MOCK_MEMBERS} />
+              )}
+            </>
+          )}
+
+          {activeTab === 'media' && <GroupMediaGallery />}
+
+          {activeTab === 'voice' && <GroupVoiceLounges />}
+
+          {activeTab === 'members' && (
+            <GroupMembersTab members={MOCK_MEMBERS} groupName={activeServer.name} />
+          )}
+        </div>
+      </div>
+
+      {/* Modals */}
       <CreateServerModal 
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreate={handleCreateServer}
+      />
+
+      <LeaveGroupModal
+        isOpen={isLeaveModalOpen}
+        groupName={activeServer.name}
+        onClose={() => setIsLeaveModalOpen(false)}
+        onConfirmLeave={handleConfirmLeaveGroup}
       />
     </div>
   );
