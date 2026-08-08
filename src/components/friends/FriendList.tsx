@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { FriendWithStatus } from '@/lib/friends';
 import { Button } from '@/components/ui/button';
-import { UserMinus, Plus, X, Bell } from 'lucide-react';
+import { UserMinus, X, Bell, Users, UserPlus, FolderPlus } from 'lucide-react';
 import { AddFriendModal } from './AddFriendModal';
+import { CreateGroupModal } from './CreateGroupModal';
 import { getPusherClient } from '@/lib/pusher';
 import { DitheringStatusIndicator } from '@/components/ui/DitheringStatusIndicator';
 import { setUnreadBadgeCount, incrementUnreadBadge } from '@/lib/badge';
@@ -13,6 +14,38 @@ import { playIncomingMessageSound } from '@/lib/sound';
 import { cacheMessages } from '@/lib/db';
 import { normalizeRoomId } from '@/lib/friends';
 import { showDesktopFloatingWindow, requestNotificationPermission } from '@/lib/notifications';
+
+export interface GroupItem {
+  id: string;
+  name: string;
+  avatar: string;
+  membersCount: number;
+  unreadCount?: number;
+}
+
+const DEFAULT_GROUPS: GroupItem[] = [
+  {
+    id: 'grp-1',
+    name: 'Наркомани',
+    avatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=Narkomany',
+    membersCount: 5,
+    unreadCount: 3
+  },
+  {
+    id: 'grp-2',
+    name: 'Dark Souls Online',
+    avatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=DarkSouls',
+    membersCount: 12,
+    unreadCount: 2
+  },
+  {
+    id: 'grp-3',
+    name: 'Cyberpub 2077',
+    avatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=Cyberpub',
+    membersCount: 8,
+    unreadCount: 46
+  }
+];
 
 interface FriendListItemProps {
   friend: FriendWithStatus;
@@ -67,9 +100,64 @@ const FriendListItem = memo(function FriendListItem({
   );
 });
 
+const GroupListItem = memo(function GroupListItem({
+  group,
+  onOpenGroup,
+}: {
+  group: GroupItem;
+  onOpenGroup: (group: GroupItem) => void;
+}) {
+  return (
+    <div 
+      onClick={() => onOpenGroup(group)}
+      className="flex items-center justify-between p-3 rounded-xl hover:bg-zinc-800/80 group transition-all cursor-pointer border border-transparent hover:border-purple-500/30 shadow-sm"
+    >
+      <div className="flex items-center gap-3.5">
+        <div className="relative">
+          <img src={group.avatar} alt={group.name} className="w-12 h-12 rounded-xl bg-zinc-800 object-cover shadow-md border border-purple-500/30" />
+          <div className="absolute -bottom-1 -right-1 z-10 w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center border-2 border-zinc-900">
+            <Users className="w-2.5 h-2.5" />
+          </div>
+        </div>
+        <div>
+          <p className="text-zinc-100 font-semibold text-base leading-tight group-hover:text-purple-400 transition-colors">{group.name}</p>
+          <p className="text-zinc-400 text-xs font-medium mt-0.5 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            Спільнота • {group.membersCount} учасників
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        {group.unreadCount ? (
+          <span className="bg-purple-600 text-white text-xs font-bold px-2.5 py-0.5 rounded-full min-w-[22px] text-center shadow-md">
+            {group.unreadCount}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+});
+
 export const FriendList = memo(function FriendList({ currentUser }: { currentUser: string }) {
+  const [activeTab, setActiveTab] = useState<'friends' | 'groups'>('friends');
   const [friends, setFriends] = useState<FriendWithStatus[]>([]);
+  const [groups, setGroups] = useState<GroupItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('nexus_custom_groups');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return [...DEFAULT_GROUPS, ...parsed];
+          }
+        } catch {}
+      }
+    }
+    return DEFAULT_GROUPS;
+  });
+
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [globalToast, setGlobalToast] = useState<{ sender: string; text: string; roomId: string } | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>('granted');
   const router = useRouter();
@@ -152,7 +240,6 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
 
     // Real-time incoming messages on user channel for main page & notifications
     channel.bind('incoming-message', (data: { id: string; sender: string; text: string; roomId: string; timestamp?: number }) => {
-      // Store in local cache so when opening chat, it is instantly available
       cacheMessages([{
         id: data.id,
         text: data.text,
@@ -182,7 +269,6 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
               ? '🔒 Зашифроване повідомлення'
               : data.text;
 
-        // Trigger True OS Desktop Floating Window & Native Notifications
         showDesktopFloatingWindow(data.sender, textPreview, () => {
           router.push(`/chat/${data.roomId}`);
         });
@@ -224,15 +310,83 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
     router.push(`/chat/private-${sorted.join('-')}`);
   }, [currentUser, router]);
 
+  const handleCreateGroup = (name: string, iconUrl?: string) => {
+    const newGroup: GroupItem = {
+      id: `custom-grp-${Date.now()}`,
+      name,
+      avatar: iconUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(name)}`,
+      membersCount: 1
+    };
+
+    setGroups(prev => {
+      const updated = [newGroup, ...prev];
+      if (typeof window !== 'undefined') {
+        const customOnly = updated.filter(g => g.id.startsWith('custom-grp-'));
+        localStorage.setItem('nexus_custom_groups', JSON.stringify(customOnly));
+      }
+      return updated;
+    });
+
+    router.push('/community');
+  };
+
+  const handleOpenGroup = (_group: GroupItem) => {
+    router.push('/community');
+  };
+
   return (
     <div className="w-full h-full flex flex-col bg-zinc-900/50 rounded-2xl border border-zinc-800/50 overflow-hidden relative">
-      <div className="p-4 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-950/60">
-        <h3 className="font-bold text-zinc-100 text-base sm:text-lg flex items-center gap-2">
-          Мої друзі
-        </h3>
-        <Button variant="ghost" size="icon" onClick={() => setShowAddModal(true)} className="w-10 h-10 text-zinc-300 hover:text-white hover:bg-zinc-800/80 rounded-xl transition-all" title="Додати друга">
-          <Plus className="w-6 h-6 text-blue-400" />
-        </Button>
+      {/* Header with Tabs & Add Buttons */}
+      <div className="p-3 border-b border-zinc-800/50 flex justify-between items-center bg-zinc-950/60">
+        <div className="flex items-center gap-1.5 bg-zinc-900/90 p-1 rounded-xl border border-zinc-800">
+          <button 
+            onClick={() => setActiveTab('friends')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'friends' 
+                ? 'bg-blue-600 text-white shadow-md' 
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <span>Друзі</span>
+            <span className="text-[10px] opacity-80">({friends.length})</span>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('groups')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'groups' 
+                ? 'bg-purple-600 text-white shadow-md' 
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <span>Групи</span>
+            <span className="text-[10px] opacity-80">({groups.length})</span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1">
+          {activeTab === 'friends' ? (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setShowAddModal(true)} 
+              className="w-9 h-9 text-zinc-300 hover:text-white hover:bg-zinc-800/80 rounded-xl transition-all" 
+              title="Додати друга"
+            >
+              <UserPlus className="w-5 h-5 text-blue-400" />
+            </Button>
+          ) : (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setShowCreateGroupModal(true)} 
+              className="w-9 h-9 text-zinc-300 hover:text-white hover:bg-zinc-800/80 rounded-xl transition-all" 
+              title="Створити нову групу"
+            >
+              <FolderPlus className="w-5 h-5 text-purple-400" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {notifPermission === 'default' && (
@@ -265,32 +419,67 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
         </div>
       )}
       
+      {/* Content Area: Friends or Groups */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {friends.length === 0 ? (
-           <div className="h-full flex flex-col items-center justify-center text-center p-4">
-             <p className="text-zinc-500 text-sm mb-2">У вас ще немає друзів</p>
-             <Button variant="link" onClick={() => setShowAddModal(true)} className="text-blue-500">Знайти друзів</Button>
-           </div>
+        {activeTab === 'friends' ? (
+          friends.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-4">
+              <p className="text-zinc-500 text-sm mb-2">У вас ще немає друзів</p>
+              <Button variant="link" onClick={() => setShowAddModal(true)} className="text-blue-500">
+                Знайти друзів
+              </Button>
+            </div>
+          ) : (
+            friends.map(friend => (
+              <FriendListItem
+                key={friend.username}
+                friend={friend}
+                onStartChat={startChat}
+                onRemoveFriend={removeFriend}
+              />
+            ))
+          )
         ) : (
-          friends.map(friend => (
-            <FriendListItem
-              key={friend.username}
-              friend={friend}
-              onStartChat={startChat}
-              onRemoveFriend={removeFriend}
-            />
-          ))
+          groups.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-4">
+              <p className="text-zinc-500 text-sm mb-2">Груп ще не створено</p>
+              <Button variant="link" onClick={() => setShowCreateGroupModal(true)} className="text-purple-400">
+                Створити першу групу
+              </Button>
+            </div>
+          ) : (
+            groups.map(group => (
+              <GroupListItem
+                key={group.id}
+                group={group}
+                onOpenGroup={handleOpenGroup}
+              />
+            ))
+          )
         )}
       </div>
-      <div className="p-2 border-t border-zinc-800/50 bg-zinc-950/30">
-        <Button variant="ghost" onClick={() => router.push('/friends')} className="w-full text-xs text-zinc-400 hover:text-white hover:bg-zinc-800/50">
-          Керування друзями та запитами
-        </Button>
+
+      <div className="p-2 border-t border-zinc-800/50 bg-zinc-950/30 flex gap-2">
+        {activeTab === 'friends' ? (
+          <Button variant="ghost" onClick={() => router.push('/friends')} className="w-full text-xs text-zinc-400 hover:text-white hover:bg-zinc-800/50">
+            Керування друзями та запитами
+          </Button>
+        ) : (
+          <Button variant="ghost" onClick={() => setShowCreateGroupModal(true)} className="w-full text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-500/10">
+            + Створити нову групу
+          </Button>
+        )}
       </div>
 
       {showAddModal && <AddFriendModal onClose={() => setShowAddModal(false)} />}
+      {showCreateGroupModal && (
+        <CreateGroupModal 
+          onClose={() => setShowCreateGroupModal(false)} 
+          onCreateGroup={handleCreateGroup} 
+        />
+      )}
 
-      {/* Toast Popup Notification for Main Page & Global Messages */}
+      {/* Toast Popup Notification */}
       {globalToast && (
         <div 
           className="fixed top-5 right-5 z-50 max-w-xs sm:max-w-sm w-full bg-zinc-900/95 border border-zinc-700/80 p-3.5 rounded-2xl shadow-2xl backdrop-blur-xl flex items-center gap-3 animate-in slide-in-from-top-5 duration-300 cursor-pointer hover:border-zinc-500 transition-all group"
@@ -316,6 +505,7 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
           </div>
 
           <button 
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               setGlobalToast(null);
