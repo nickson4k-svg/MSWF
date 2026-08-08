@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, LogOut, LogIn, UserPlus, Camera, Loader2 } from 'lucide-react';
+import { MessageSquare, LogOut, LogIn, UserPlus, Camera, Loader2, Users } from 'lucide-react';
 import Link from 'next/link';
 import { FriendList } from '@/components/friends/FriendList';
 import { InstallAppButton } from '@/components/InstallAppButton';
@@ -196,6 +196,15 @@ export default function Home() {
                 className="w-full h-12 border-zinc-700 bg-zinc-800/30 hover:bg-zinc-800 hover:text-white text-zinc-300 rounded-xl font-medium transition-all group"
               >
                 Створити нову кімнату
+              </Button>
+
+              <Button 
+                type="button" 
+                onClick={() => router.push('/community')}
+                className="w-full h-12 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-medium shadow-lg shadow-purple-900/30 transition-all group"
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Спільноти та Групи (Discord Style)
               </Button>
             </form>
           ) : (
