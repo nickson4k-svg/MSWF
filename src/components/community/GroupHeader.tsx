@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { 
   MessageSquare, FolderKanban, Volume2, Users, 
-  Link, MoreVertical, LogOut, Settings, Check, UserPlus
+  Link, MoreVertical, LogOut, Settings, Check, UserPlus, Sparkles, Palette
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ShaderPreset } from './ShaderBackground';
 
 export type GroupTab = 'chat' | 'media' | 'voice' | 'members';
 
@@ -18,6 +19,8 @@ interface GroupHeaderProps {
   onTabChange: (tab: GroupTab) => void;
   onOpenLeaveModal: () => void;
   onOpenInviteModal?: () => void;
+  shaderPreset?: ShaderPreset;
+  onShaderChange?: (preset: ShaderPreset) => void;
 }
 
 export function GroupHeader({
@@ -28,9 +31,12 @@ export function GroupHeader({
   activeTab,
   onTabChange,
   onOpenLeaveModal,
+  shaderPreset = 'aurora',
+  onShaderChange
 }: GroupHeaderProps) {
   const [copied, setCopied] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showShaderMenu, setShowShaderMenu] = useState(false);
 
   const handleCopyInvite = () => {
     if (typeof window !== 'undefined') {
@@ -45,6 +51,14 @@ export function GroupHeader({
     { id: 'media', label: 'Медіа & Файли', icon: <FolderKanban className="w-3.5 h-3.5" /> },
     { id: 'voice', label: 'Голосові', icon: <Volume2 className="w-3.5 h-3.5" /> },
     { id: 'members', label: 'Учасники', icon: <Users className="w-3.5 h-3.5" /> },
+  ];
+
+  const shaderOptions: { id: ShaderPreset; label: string; icon: string }[] = [
+    { id: 'aurora', label: '🌌 Cosmic Aurora', icon: '🌌' },
+    { id: 'nebula', label: '🔮 Cyber Nebula', icon: '🔮' },
+    { id: 'plasma', label: '⚡ Plasma Flow', icon: '⚡' },
+    { id: 'stars', label: '🚀 Hyper Space', icon: '🚀' },
+    { id: 'none', label: '🚫 Без шейдера', icon: '🚫' },
   ];
 
   return (
@@ -95,6 +109,54 @@ export function GroupHeader({
 
       {/* Right: Actions Menu */}
       <div className="flex items-center gap-2 relative">
+        {/* Shader Background Selector Button */}
+        <div className="relative">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowShaderMenu(!showShaderMenu)}
+            className={`glass-panel text-xs h-9 transition-all font-display border-0 flex items-center gap-1.5 ${
+              shaderPreset !== 'none' 
+                ? 'bg-indigo-500/20 text-cyan-300 border-indigo-400/30 glow-cyan' 
+                : 'hover:bg-white/[0.08] text-white/60 hover:text-white'
+            }`}
+            style={{ border: '1px solid rgba(255,255,255,0.10)' }}
+            title="Шейдерний задній фон"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+            <span className="hidden md:inline">Шейдер фону</span>
+          </Button>
+
+          {/* Shader Preset Dropdown */}
+          {showShaderMenu && (
+            <div 
+              className="absolute right-0 top-11 w-48 glass-panel rounded-2xl shadow-2xl p-1.5 space-y-1 animate-in fade-in duration-150 z-50"
+              onMouseLeave={() => setShowShaderMenu(false)}
+            >
+              <div className="px-2 py-1 text-[10px] uppercase font-bold text-white/30 tracking-wider font-display">
+                Оберіть Шейдер Фону
+              </div>
+              {shaderOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => {
+                    if (onShaderChange) onShaderChange(opt.id);
+                    setShowShaderMenu(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2 text-xs rounded-xl transition-all font-display ${
+                    shaderPreset === opt.id 
+                      ? 'bg-gradient-to-r from-indigo-500 to-cyan-400 text-white font-semibold glow-active' 
+                      : 'text-white/70 hover:text-white hover:bg-white/[0.08]'
+                  }`}
+                >
+                  <span>{opt.label}</span>
+                  {shaderPreset === opt.id && <Check className="w-3.5 h-3.5 text-white" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <Button
           variant="outline"
           size="sm"
@@ -144,6 +206,17 @@ export function GroupHeader({
             </button>
 
             <button
+              onClick={() => {
+                setShowMenu(false);
+                setShowShaderMenu(true);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white/60 hover:text-white hover:bg-white/[0.08] rounded-xl transition-colors"
+            >
+              <Palette className="w-4 h-4 text-cyan-400" />
+              <span>Змінити шейдер фону</span>
+            </button>
+
+            <button
               onClick={() => setShowMenu(false)}
               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-white/60 hover:text-white hover:bg-white/[0.08] rounded-xl transition-colors"
             >
@@ -169,3 +242,4 @@ export function GroupHeader({
     </div>
   );
 }
+

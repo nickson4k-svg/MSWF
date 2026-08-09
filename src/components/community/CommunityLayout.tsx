@@ -14,62 +14,15 @@ import { LeaveGroupModal } from './LeaveGroupModal';
 import { GroupMediaGallery } from './GroupMediaGallery';
 import { GroupVoiceLounges } from './GroupVoiceLounges';
 import { GroupMembersTab } from './GroupMembersTab';
+import { ShaderBackground, ShaderPreset } from './ShaderBackground';
 
-const MOCK_MEMBERS: Member[] = [
+const REAL_MEMBERS: Member[] = [
   {
-    id: 'u1',
-    name: 'lunati',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=lunati',
+    id: 'u-me',
+    name: 'NicoNico',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NicoNico',
     status: 'online',
-    customStatus: 'СПЛЮ',
-    roleColor: '#e91e63'
-  },
-  {
-    id: 'u2',
-    name: 'rxqzzz',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=rxqzzz',
-    status: 'dnd',
-    roleColor: '#00bcd4'
-  },
-  {
-    id: 'u3',
-    name: 'WD-40',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=WD40',
-    status: 'online',
-    isBot: true,
-    customStatus: 'робочий режим активний'
-  },
-  {
-    id: 'u4',
-    name: 'Слот СІТІ',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=SlotCity',
-    status: 'online',
-    customStatus: 'У голосовому чаті',
-    roleColor: '#ff9800'
-  },
-  {
-    id: 'u5',
-    name: 'ХохлоПоляк',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=HohloPolyak',
-    status: 'online',
-    customStatus: 'Flying in cosmos',
-    roleColor: '#4caf50',
-    activity: {
-      game: 'SCP: Containment Breach',
-      duration: '2 д. назад · Новий гравець'
-    }
-  },
-  {
-    id: 'u6',
-    name: 'Hoper',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hoper',
-    status: 'offline'
-  },
-  {
-    id: 'u7',
-    name: 'Ma.r1k',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Marik',
-    status: 'offline'
+    customStatus: 'Творець спільноти'
   }
 ];
 
@@ -79,26 +32,9 @@ const INITIAL_MESSAGES: Message[] = [
     author: 'NicoNico',
     avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NicoNico',
     nameColor: '#4caf50',
-    timestamp: '05.08.2026 23:55',
-    type: 'image',
-    content: 'ладно, я в доту',
-    imageUrl: '/meme.png'
-  },
-  {
-    id: 'm2',
-    author: 'Габа Шен Пуер',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Gaba',
-    nameColor: '#00a8fc',
-    timestamp: '05.08.2026 23:59',
-    type: 'embed',
-    content: 'https://www.youtube.com/watch?v=7pyMb3MgU_E',
-    embed: {
-      source: 'YouTube',
-      author: 'ЦиціБога',
-      title: 'ВИШНІ Status///REMAKE',
-      thumbnailUrl: '/youtube_thumb.png',
-      accentColor: '#ef4444'
-    }
+    timestamp: 'Сьогодні 00:01',
+    type: 'text',
+    content: 'Ласкаво просимо до нашої нової спільноти Nexus!'
   }
 ];
 
@@ -109,13 +45,19 @@ export function CommunityLayout() {
   const [activeChannelId, setActiveChannelId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<GroupTab>('chat');
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
+  const [members, setMembers] = useState<Member[]>(REAL_MEMBERS);
   const [showMembersPanel, setShowMembersPanel] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [shaderPreset, setShaderPreset] = useState<ShaderPreset>('aurora');
 
-  // Load custom groups from localStorage on mount
+  // Load custom groups & shader preset from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const savedShader = localStorage.getItem('nexus_shader_bg_preset') as ShaderPreset;
+      if (savedShader) {
+        setShaderPreset(savedShader);
+      }
       const saved = localStorage.getItem('nexus_custom_groups');
       if (saved) {
         try {
@@ -308,14 +250,24 @@ export function CommunityLayout() {
     }
   };
 
-  const onlineMembersCount = MOCK_MEMBERS.filter(m => m.status !== 'offline').length;
+  const handleShaderChange = (preset: ShaderPreset) => {
+    setShaderPreset(preset);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nexus_shader_bg_preset', preset);
+    }
+  };
+
+  const onlineMembersCount = members.filter(m => m.status !== 'offline').length;
 
   return (
     <div className="flex h-screen w-screen aurora-bg aurora-noise text-white font-sans overflow-hidden antialiased relative">
+      {/* Real-time Canvas Shader Engine Background */}
+      <ShaderBackground preset={shaderPreset} />
+
       {/* Cosmic Glow Orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute top-2/3 right-1/3 w-80 h-80 bg-purple-600/12 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none z-0" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-[140px] pointer-events-none z-0" />
+      <div className="absolute top-2/3 right-1/3 w-80 h-80 bg-purple-600/12 rounded-full blur-[140px] pointer-events-none z-0" />
 
       {/* 1. Leftmost Server / Group Rail (~72px) */}
       <ServerRail 
@@ -338,10 +290,12 @@ export function CommunityLayout() {
           groupName={activeServer.name}
           groupAvatar={activeServer.iconUrl}
           onlineCount={onlineMembersCount}
-          totalCount={MOCK_MEMBERS.length}
+          totalCount={members.length}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onOpenLeaveModal={() => setIsLeaveModalOpen(true)}
+          shaderPreset={shaderPreset}
+          onShaderChange={handleShaderChange}
         />
 
         {/* Dynamic Tab Body */}
@@ -371,7 +325,7 @@ export function CommunityLayout() {
 
               {/* Right Members Sidebar */}
               {showMembersPanel && (
-                <MembersSidebar members={MOCK_MEMBERS} />
+                <MembersSidebar members={members} />
               )}
             </>
           )}
@@ -381,7 +335,7 @@ export function CommunityLayout() {
           {activeTab === 'voice' && <GroupVoiceLounges />}
 
           {activeTab === 'members' && (
-            <GroupMembersTab members={MOCK_MEMBERS} groupName={activeServer.name} />
+            <GroupMembersTab members={members} groupName={activeServer.name} />
           )}
         </div>
       </div>

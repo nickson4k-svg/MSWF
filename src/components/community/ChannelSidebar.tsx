@@ -24,7 +24,7 @@ export function ChannelSidebar({ server, activeChannelId, onSelectChannel, curre
   const [voiceOpen, setVoiceOpen] = useState(true);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
-  const [inVoiceCall, setInVoiceCall] = useState(true);
+  const [inVoiceCall, setInVoiceCall] = useState(false);
 
   return (
     <div className="w-[240px] glass-panel flex flex-col h-full flex-shrink-0 select-none z-10 border-r-0 rounded-none" style={{ borderRight: '1px solid rgba(255,255,255,0.08)' }}>
@@ -177,7 +177,7 @@ export function ChannelSidebar({ server, activeChannelId, onSelectChannel, curre
                     Голосовий зв&apos;язок підключено
                   </span>
                   <span className="text-[10px] text-white/40 truncate mt-0.5">
-                    Бабелан / {server.name}
+                    Голосовий 1 / {server.name}
                   </span>
                 </div>
               </div>

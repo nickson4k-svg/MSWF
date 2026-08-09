@@ -14,28 +14,25 @@ interface VoiceLounge {
 const INITIAL_LOUNGES: VoiceLounge[] = [
   {
     id: 'lounge-1',
-    name: 'Бабелан',
-    isLive: true,
-    users: [
-      { id: 'u4', name: 'Слот СІТІ', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=SlotCity', isSpeaking: true },
-      { id: 'u5', name: 'ХохлоПоляк', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=HohloPolyak', isSpeaking: false }
-    ]
+    name: 'Голосовий Lounge 1',
+    isLive: false,
+    users: []
   },
   {
     id: 'lounge-2',
-    name: 'Слот СІТІ Lounge',
+    name: 'Голосовий Lounge 2',
     users: []
   },
   {
     id: 'lounge-3',
-    name: 'пабг-дрочерс',
+    name: 'Ігровий Lounge',
     users: []
   }
 ];
 
 export function GroupVoiceLounges() {
   const [lounges] = useState<VoiceLounge[]>(INITIAL_LOUNGES);
-  const [activeLoungeId, setActiveLoungeId] = useState<string | null>('lounge-1');
+  const [activeLoungeId, setActiveLoungeId] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
 
   const handleToggleJoin = (loungeId: string) => {
