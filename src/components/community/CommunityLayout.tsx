@@ -9,6 +9,7 @@ import { ChannelSidebar } from './ChannelSidebar';
 import { ChatArea } from './ChatArea';
 import { MembersSidebar } from './MembersSidebar';
 import { CreateServerModal } from './CreateServerModal';
+import { CreateChannelModal } from './CreateChannelModal';
 import { GroupHeader, GroupTab } from './GroupHeader';
 import { LeaveGroupModal } from './LeaveGroupModal';
 import { GroupMediaGallery } from './GroupMediaGallery';
@@ -45,9 +46,11 @@ export function CommunityLayout() {
   const [activeChannelId, setActiveChannelId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<GroupTab>('chat');
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
+  const [channelMessages, setChannelMessages] = useState<Record<string, Message[]>>({});
   const [members, setMembers] = useState<Member[]>(REAL_MEMBERS);
   const [showMembersPanel, setShowMembersPanel] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreateChannelModalOpen, setIsCreateChannelModalOpen] = useState(false);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [shaderPreset, setShaderPreset] = useState<ShaderPreset>('aurora');
 
@@ -184,20 +187,57 @@ export function CommunityLayout() {
   const allChannels = [...activeServer.channels.text, ...activeServer.channels.voice];
   const activeChannel = allChannels.find(c => c.id === activeChannelId) || activeServer.channels.text[0] || { id: 'ch-fallback', type: 'text', name: 'загальний' };
 
+  const currentChannelMessages = channelMessages[activeChannelId] || [
+    {
+      id: `welcome-${activeChannelId}`,
+      author: 'NicoNico',
+      avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NicoNico',
+      nameColor: '#4caf50',
+      timestamp: 'Сьогодні',
+      type: 'text',
+      content: `Ласкаво просимо до каналу #${activeChannel.name}! Напишіть перше повідомлення.`
+    }
+  ];
+
   const handleSendMessage = (text: string) => {
     const newMsg: Message = {
       id: `msg-${Date.now()}`,
       author: 'NicoNico',
       avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NicoNico',
       nameColor: '#4caf50',
-      timestamp: new Date().toLocaleString('uk-UA', { 
-        day: '2-digit', month: '2-digit', year: 'numeric', 
+      timestamp: new Date().toLocaleTimeString('uk-UA', { 
         hour: '2-digit', minute: '2-digit' 
       }),
       type: 'text',
       content: text
     };
-    setMessages(prev => [...prev, newMsg]);
+    setChannelMessages(prev => ({
+      ...prev,
+      [activeChannelId]: [...(prev[activeChannelId] || currentChannelMessages), newMsg]
+    }));
+  };
+
+  const handleCreateChannel = (name: string, type: 'text' | 'voice') => {
+    if (!activeServer) return;
+    const newChannelId = `ch-${Date.now()}`;
+    const newChannel = { id: newChannelId, type, name };
+
+    const updatedServers = servers.map(s => {
+      if (s.id !== activeServer.id) return s;
+      return {
+        ...s,
+        channels: {
+          ...s.channels,
+          [type]: [...s.channels[type], newChannel]
+        }
+      };
+    });
+
+    setServers(updatedServers);
+    saveServersToStorage(updatedServers);
+    if (type === 'text') {
+      setActiveChannelId(newChannelId);
+    }
   };
 
   const handleCreateServer = (name: string, iconUrl?: string) => {
@@ -260,7 +300,7 @@ export function CommunityLayout() {
   const onlineMembersCount = members.filter(m => m.status !== 'offline').length;
 
   return (
-    <div className="flex h-screen w-screen aurora-bg aurora-noise text-white font-sans overflow-hidden antialiased relative">
+    <div className="flex flex-col h-screen w-screen aurora-bg aurora-noise text-white font-sans overflow-hidden antialiased relative p-3 gap-3">
       {/* Real-time Canvas Shader Engine Background */}
       <ShaderBackground preset={shaderPreset} />
 
@@ -269,75 +309,94 @@ export function CommunityLayout() {
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-[140px] pointer-events-none z-0" />
       <div className="absolute top-2/3 right-1/3 w-80 h-80 bg-purple-600/12 rounded-full blur-[140px] pointer-events-none z-0" />
 
-      {/* 1. Leftmost Server / Group Rail (~72px) */}
-      <ServerRail 
-        servers={servers}
-        activeServerId={activeServerId}
-        onSelectServer={(id) => {
-          setActiveServerId(id);
-          const target = servers.find(s => s.id === id);
-          if (target && target.channels.text.length > 0) {
-            setActiveChannelId(target.channels.text[0].id);
-          }
-        }}
-        onOpenCreateModal={() => setIsCreateModalOpen(true)}
-      />
-
-      {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0 h-full z-10">
-        {/* Top Header with Group Info, Tab Switcher & Leave Group Menu */}
-        <GroupHeader
-          groupName={activeServer.name}
-          groupAvatar={activeServer.iconUrl}
-          onlineCount={onlineMembersCount}
-          totalCount={members.length}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onOpenLeaveModal={() => setIsLeaveModalOpen(true)}
-          shaderPreset={shaderPreset}
-          onShaderChange={handleShaderChange}
+      {/* Top Floating Command Bar: Server Dock + Group Header */}
+      <div className="flex flex-col md:flex-row items-center gap-3 z-20 flex-shrink-0">
+        {/* Horizontal Server Dock */}
+        <ServerRail 
+          servers={servers}
+          activeServerId={activeServerId}
+          onSelectServer={(id) => {
+            setActiveServerId(id);
+            const target = servers.find(s => s.id === id);
+            if (target && target.channels.text.length > 0) {
+              setActiveChannelId(target.channels.text[0].id);
+            }
+          }}
+          onOpenCreateModal={() => setIsCreateModalOpen(true)}
         />
 
-        {/* Dynamic Tab Body */}
-        <div className="flex-1 flex min-w-0 overflow-hidden relative">
-          {activeTab === 'chat' && (
-            <>
-              {/* Channel Sidebar (~240px) */}
+        {/* Group Header Bar */}
+        <div className="flex-1 w-full">
+          <GroupHeader
+            groupName={activeServer.name}
+            groupAvatar={activeServer.iconUrl}
+            onlineCount={onlineMembersCount}
+            totalCount={members.length}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onOpenLeaveModal={() => setIsLeaveModalOpen(true)}
+            shaderPreset={shaderPreset}
+            onShaderChange={handleShaderChange}
+          />
+        </div>
+      </div>
+
+      {/* Main Floating Workspace Arena */}
+      <div className="flex-1 flex min-w-0 overflow-hidden relative gap-3 z-10">
+        {activeTab === 'chat' && (
+          <>
+            {/* Floating Left Channel Sidebar (~260px) */}
+            <div className="w-[260px] flex-shrink-0 rounded-3xl overflow-hidden glass-panel border-white/10 shadow-2xl flex flex-col">
               <ChannelSidebar 
                 server={activeServer}
                 activeChannelId={activeChannelId}
                 onSelectChannel={(chId) => setActiveChannelId(chId)}
+                onOpenCreateChannelModal={() => setIsCreateChannelModalOpen(true)}
                 currentUser={{
                   name: 'NicoNico',
                   avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NicoNico',
                   status: 'online'
                 }}
               />
+            </div>
 
-              {/* Main Chat Area */}
+            {/* Main Floating Chat Arena (Flex-1) */}
+            <div className="flex-1 min-w-0 rounded-3xl overflow-hidden glass-panel border-white/10 shadow-2xl flex flex-col">
               <ChatArea 
                 channel={activeChannel}
-                messages={messages}
+                messages={currentChannelMessages}
                 onSendMessage={handleSendMessage}
                 toggleMembersPanel={() => setShowMembersPanel(!showMembersPanel)}
                 showMembersPanel={showMembersPanel}
               />
+            </div>
 
-              {/* Right Members Sidebar */}
-              {showMembersPanel && (
+            {/* Floating Right Members Drawer (~250px) */}
+            {showMembersPanel && (
+              <div className="w-[250px] flex-shrink-0 rounded-3xl overflow-hidden glass-panel border-white/10 shadow-2xl flex flex-col">
                 <MembersSidebar members={members} />
-              )}
-            </>
-          )}
+              </div>
+            )}
+          </>
+        )}
 
-          {activeTab === 'media' && <GroupMediaGallery />}
+        {activeTab === 'media' && (
+          <div className="flex-1 min-w-0 rounded-3xl overflow-hidden glass-panel border-white/10 shadow-2xl flex flex-col">
+            <GroupMediaGallery />
+          </div>
+        )}
 
-          {activeTab === 'voice' && <GroupVoiceLounges />}
+        {activeTab === 'voice' && (
+          <div className="flex-1 min-w-0 rounded-3xl overflow-hidden glass-panel border-white/10 shadow-2xl flex flex-col">
+            <GroupVoiceLounges />
+          </div>
+        )}
 
-          {activeTab === 'members' && (
+        {activeTab === 'members' && (
+          <div className="flex-1 min-w-0 rounded-3xl overflow-hidden glass-panel border-white/10 shadow-2xl flex flex-col">
             <GroupMembersTab members={members} groupName={activeServer.name} />
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Modals */}
@@ -345,6 +404,12 @@ export function CommunityLayout() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreate={handleCreateServer}
+      />
+
+      <CreateChannelModal
+        isOpen={isCreateChannelModalOpen}
+        onClose={() => setIsCreateChannelModalOpen(false)}
+        onCreateChannel={handleCreateChannel}
       />
 
       <LeaveGroupModal

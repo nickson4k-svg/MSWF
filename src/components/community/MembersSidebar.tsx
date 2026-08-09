@@ -44,7 +44,7 @@ export function MembersSidebar({ members }: MembersSidebarProps) {
                     <img 
                       src={m.avatarUrl} 
                       alt={m.name} 
-                      className={`w-5 h-5 rounded-full object-cover ${getAvatarRingClass(m.status)}`}
+                      className={`w-5 h-5 rounded-md object-cover ${getAvatarRingClass(m.status)}`}
                     />
                     <span className="text-xs font-semibold truncate hover:underline accent-gradient-text font-display">
                       {m.name}
@@ -88,7 +88,7 @@ export function MembersSidebar({ members }: MembersSidebarProps) {
               <img 
                 src={m.avatarUrl} 
                 alt={m.name} 
-                className={`w-7 h-7 rounded-full object-cover ${getAvatarRingClass(m.status)}`}
+                className={`w-7 h-7 rounded-xl object-cover ${getAvatarRingClass(m.status)}`}
               />
             </div>
 
@@ -132,7 +132,7 @@ export function MembersSidebar({ members }: MembersSidebarProps) {
               <img 
                 src={m.avatarUrl} 
                 alt={m.name} 
-                className="w-7 h-7 rounded-full object-cover grayscale avatar-ring-offline" 
+                className="w-7 h-7 rounded-xl object-cover grayscale avatar-ring-offline" 
               />
             </div>
 

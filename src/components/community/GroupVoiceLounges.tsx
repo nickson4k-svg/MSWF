@@ -60,6 +60,9 @@ export function GroupVoiceLounges() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {lounges.map((lounge) => {
           const isConnected = activeLoungeId === lounge.id;
+          const displayUsers = isConnected 
+            ? [...lounge.users, { id: 'u-me', name: 'NicoNico', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NicoNico', isSpeaking: !isMuted }]
+            : lounge.users;
 
           return (
             <div 
@@ -80,7 +83,7 @@ export function GroupVoiceLounges() {
                   <div>
                     <h4 className="text-sm font-bold text-white flex items-center gap-2 font-display">
                       {lounge.name}
-                      {lounge.isLive && (
+                      {isConnected && (
                         <span className="text-[10px] bg-cyan-400/10 text-cyan-400 border border-cyan-400/30 px-1.5 py-0.5 rounded-md flex items-center gap-1 font-mono">
                           <Radio className="w-3 h-3 animate-pulse" /> LIVE
                         </span>
@@ -88,7 +91,7 @@ export function GroupVoiceLounges() {
                     </h4>
                     <p className="text-xs text-white/40 flex items-center gap-1 mt-0.5">
                       <Users className="w-3.5 h-3.5" />
-                      {lounge.users.length} учасників
+                      {displayUsers.length} учасників
                     </p>
                   </div>
                 </div>
@@ -106,15 +109,15 @@ export function GroupVoiceLounges() {
               </div>
 
               {/* Connected Users list in this room */}
-              {lounge.users.length > 0 ? (
+              {displayUsers.length > 0 ? (
                 <div className="glass-panel p-3 rounded-2xl space-y-2">
-                  {lounge.users.map((usr) => (
+                  {displayUsers.map((usr) => (
                     <div key={usr.id} className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <img 
                           src={usr.avatar} 
                           alt={usr.name} 
-                          className={`w-7 h-7 rounded-full object-cover ${usr.isSpeaking ? 'avatar-ring-online' : 'avatar-ring-offline'}`} 
+                          className={`w-7 h-7 rounded-xl object-cover ${usr.isSpeaking ? 'avatar-ring-online' : 'avatar-ring-offline'}`} 
                         />
                         <span className="text-xs font-medium text-white/80 font-display">{usr.name}</span>
                       </div>
@@ -125,7 +128,7 @@ export function GroupVoiceLounges() {
                           Говорить...
                         </span>
                       ) : (
-                        <Mic className="w-3.5 h-3.5 text-white/30" />
+                        <MicOff className="w-3.5 h-3.5 text-white/30" />
                       )}
                     </div>
                   ))}

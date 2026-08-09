@@ -12,6 +12,7 @@ interface ChannelSidebarProps {
   server: Server;
   activeChannelId: string;
   onSelectChannel: (channelId: string) => void;
+  onOpenCreateChannelModal?: () => void;
   currentUser: {
     name: string;
     avatarUrl: string;
@@ -19,7 +20,7 @@ interface ChannelSidebarProps {
   };
 }
 
-export function ChannelSidebar({ server, activeChannelId, onSelectChannel, currentUser }: ChannelSidebarProps) {
+export function ChannelSidebar({ server, activeChannelId, onSelectChannel, onOpenCreateChannelModal, currentUser }: ChannelSidebarProps) {
   const [textOpen, setTextOpen] = useState(true);
   const [voiceOpen, setVoiceOpen] = useState(true);
   const [isMicMuted, setIsMicMuted] = useState(false);
@@ -63,7 +64,7 @@ export function ChannelSidebar({ server, activeChannelId, onSelectChannel, curre
               {textOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
               <span>Текстові канали</span>
             </button>
-            <button title="Створити канал">
+            <button onClick={onOpenCreateChannelModal} title="Створити канал">
               <Plus className="w-3.5 h-3.5 text-white/30 hover:text-white transition-colors" />
             </button>
           </div>
@@ -101,7 +102,7 @@ export function ChannelSidebar({ server, activeChannelId, onSelectChannel, curre
               {voiceOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
               <span>Голосові канали</span>
             </button>
-            <button title="Створити голосовий канал">
+            <button onClick={onOpenCreateChannelModal} title="Створити голосовий канал">
               <Plus className="w-3.5 h-3.5 text-white/30 hover:text-white transition-colors" />
             </button>
           </div>
@@ -142,7 +143,7 @@ export function ChannelSidebar({ server, activeChannelId, onSelectChannel, curre
                           <img 
                             src={usr.avatarUrl} 
                             alt={usr.name} 
-                            className="w-5 h-5 rounded-full object-cover avatar-ring-online" 
+                            className="w-5 h-5 rounded-md object-cover avatar-ring-online" 
                           />
                           <span className="text-xs text-white/80 font-medium truncate">
                             {usr.name}
@@ -231,7 +232,7 @@ export function ChannelSidebar({ server, activeChannelId, onSelectChannel, curre
               <img 
                 src={currentUser.avatarUrl} 
                 alt={currentUser.name} 
-                className="w-7 h-7 rounded-full object-cover avatar-ring-online" 
+                className="w-7 h-7 rounded-xl object-cover avatar-ring-online" 
               />
             </div>
             <div className="flex flex-col truncate leading-tight">
