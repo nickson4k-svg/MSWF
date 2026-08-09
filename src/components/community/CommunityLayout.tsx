@@ -395,7 +395,7 @@ export function CommunityLayout() {
 
         {activeTab === 'media' && (
           <div className="flex-1 min-w-0 rounded-3xl overflow-hidden glass-panel border-white/10 shadow-2xl flex flex-col">
-            <GroupMediaGallery />
+            <GroupMediaGallery messages={Object.values(channelMessages).flat()} />
           </div>
         )}
 

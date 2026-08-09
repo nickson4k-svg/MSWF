@@ -50,7 +50,7 @@ export interface Message {
   avatarUrl: string;
   nameColor?: string;
   timestamp: string;
-  type: 'text' | 'embed' | 'image';
+  type: 'text' | 'embed' | 'image' | 'file' | 'video';
   content?: string;
   imageUrl?: string;
   embed?: EmbedData;
