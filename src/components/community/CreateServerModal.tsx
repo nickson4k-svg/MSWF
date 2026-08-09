@@ -27,18 +27,18 @@ export function CreateServerModal({ isOpen, onClose, onCreate }: CreateServerMod
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-[#313338] border border-[#383a40] w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="glass-panel w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col glow-active">
         {/* Header */}
-        <div className="p-6 text-center relative border-b border-[#383a40]">
+        <div className="p-6 text-center relative aurora-divider border-b-0 pb-4">
           <button 
             onClick={onClose}
-            className="absolute top-4 right-4 text-[#949ba4] hover:text-white transition-colors"
+            className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Створити свою спільноту</h2>
-          <p className="text-sm text-[#949ba4] mt-1">
+          <h2 className="text-2xl font-bold text-white tracking-tight font-display">Створити свою спільноту</h2>
+          <p className="text-sm text-white/50 mt-1">
             Ваш сервер — це місце, де ви з друзями спілкуєтеся у голосових та текстових каналах.
           </p>
         </div>
@@ -46,43 +46,43 @@ export function CreateServerModal({ isOpen, onClose, onCreate }: CreateServerMod
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-xs font-bold text-[#b5bac1] uppercase tracking-wider mb-2">
-              Назва сервера <span className="text-red-400">*</span>
+            <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-2 font-display">
+              Назва сервера <span className="text-[var(--status-dnd)]">*</span>
             </label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Наприклад: Наркомани / Геймери"
-              className="bg-[#1e1f22] border-none text-white h-11 px-4 rounded-lg focus-visible:ring-1 focus-visible:ring-[#5865f2] placeholder:text-[#6d6f78]"
+              placeholder="Наприклад: Космічна станція / Геймери"
+              className="glass-panel border-white/10 text-white h-11 px-4 rounded-xl focus-visible:ring-1 focus-visible:ring-indigo-500/50 placeholder:text-white/20"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-[#b5bac1] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <ImageIcon className="w-3.5 h-3.5 text-[#5865f2]" />
+            <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-2 flex items-center gap-1.5 font-display">
+              <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
               URL Аватарки сервера (опціонально)
             </label>
             <Input
               value={iconUrl}
               onChange={(e) => setIconUrl(e.target.value)}
               placeholder="https://example.com/avatar.png"
-              className="bg-[#1e1f22] border-none text-white h-11 px-4 rounded-lg focus-visible:ring-1 focus-visible:ring-[#5865f2] placeholder:text-[#6d6f78]"
+              className="glass-panel border-white/10 text-white h-11 px-4 rounded-xl focus-visible:ring-1 focus-visible:ring-indigo-500/50 placeholder:text-white/20"
             />
           </div>
 
-          <div className="pt-4 flex justify-between items-center bg-[#2b2d31] -mx-6 -mb-6 p-4 px-6 border-t border-[#383a40]">
+          <div className="pt-4 flex justify-between items-center glass-panel -mx-6 -mb-6 p-4 px-6 border-t-0 border-r-0 border-l-0 rounded-none" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
             <button
               type="button"
               onClick={onClose}
-              className="text-sm font-medium text-white hover:underline"
+              className="text-sm font-medium text-white/60 hover:text-white hover:underline transition-colors font-display"
             >
               Скасувати
             </button>
             <Button
               type="submit"
               disabled={!name.trim()}
-              className="bg-[#5865f2] hover:bg-[#4752c4] text-white px-6 py-2 rounded-lg font-medium shadow-md transition-all disabled:opacity-50"
+              className="bg-gradient-to-r from-indigo-500 to-cyan-400 hover:from-indigo-400 hover:to-cyan-300 text-white px-6 py-2 rounded-xl font-semibold shadow-md glow-active transition-all disabled:opacity-30 font-display border-0"
             >
               Створити
             </Button>

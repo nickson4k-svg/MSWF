@@ -169,25 +169,26 @@ export function CommunityLayout() {
   
   if (!activeServer) {
     return (
-      <div className="flex h-screen w-screen bg-zinc-950 text-white items-center justify-center flex-col p-4 relative overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="flex h-screen w-screen aurora-bg aurora-noise text-white items-center justify-center flex-col p-4 relative overflow-hidden font-sans">
+        {/* Cosmic Glow Orbs */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-[140px] pointer-events-none" />
 
-        <div className="bg-zinc-900/80 p-8 rounded-3xl border border-zinc-800/80 max-w-md w-full text-center space-y-4 shadow-2xl backdrop-blur-xl z-10 animate-in fade-in duration-200">
-          <div className="w-16 h-16 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center mx-auto shadow-inner">
+        <div className="glass-panel p-8 rounded-3xl max-w-md w-full text-center space-y-4 shadow-2xl z-10 animate-in fade-in duration-200 glow-active">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 text-cyan-400 flex items-center justify-center mx-auto shadow-inner glow-cyan">
             <Users className="w-8 h-8" />
           </div>
 
-          <h2 className="text-2xl font-bold tracking-tight text-white">У вас немає активних груп</h2>
-          <p className="text-sm text-zinc-400">
+          <h2 className="text-2xl font-bold tracking-tight text-white font-display">У вас немає активних груп</h2>
+          <p className="text-sm text-white/50">
             Створіть свою першу спільноту або груповий чат для спілкування з друзями.
           </p>
 
-          <div className="flex flex-col gap-2.5 pt-2">
+          <div className="flex flex-col gap-2.5 pt-2 font-display">
             <button 
               type="button"
               onClick={() => setIsCreateModalOpen(true)}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl text-sm font-semibold shadow-lg shadow-blue-900/30 transition-all flex items-center justify-center gap-2"
+              className="w-full bg-gradient-to-r from-indigo-500 to-cyan-400 hover:from-indigo-400 hover:to-cyan-300 text-white py-3 rounded-xl text-sm font-semibold shadow-lg glow-active transition-all flex items-center justify-center gap-2"
             >
               <Plus className="w-4 h-4" />
               Створити нову групу
@@ -196,7 +197,7 @@ export function CommunityLayout() {
             <button 
               type="button"
               onClick={() => router.push('/')}
-              className="w-full border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 py-3 rounded-xl text-sm font-medium transition-all"
+              className="w-full glass-panel hover:bg-white/[0.08] text-white/70 py-3 rounded-xl text-sm font-medium transition-all"
             >
               Повернутися на головну
             </button>
@@ -310,10 +311,11 @@ export function CommunityLayout() {
   const onlineMembersCount = MOCK_MEMBERS.filter(m => m.status !== 'offline').length;
 
   return (
-    <div className="flex h-screen w-screen bg-zinc-950 text-zinc-100 font-sans overflow-hidden antialiased relative">
-      {/* Background Ambient Blur Glows */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[140px] pointer-events-none" />
+    <div className="flex h-screen w-screen aurora-bg aurora-noise text-white font-sans overflow-hidden antialiased relative">
+      {/* Cosmic Glow Orbs */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-2/3 right-1/3 w-80 h-80 bg-purple-600/12 rounded-full blur-[140px] pointer-events-none" />
 
       {/* 1. Leftmost Server / Group Rail (~72px) */}
       <ServerRail 
@@ -330,7 +332,7 @@ export function CommunityLayout() {
       />
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0 h-full">
+      <div className="flex-1 flex flex-col min-w-0 h-full z-10">
         {/* Top Header with Group Info, Tab Switcher & Leave Group Menu */}
         <GroupHeader
           groupName={activeServer.name}

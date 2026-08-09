@@ -177,9 +177,146 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: rgba(255,255,255,0.08);
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: rgba(255,255,255,0.14);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COSMIC AURORA — Design System for Community Section
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Aurora background palette */
+  --aurora-from: #0c1330;
+  --aurora-via: #151a45;
+  --aurora-to: #0a0e27;
+
+  /* Glass panel tokens */
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-bg-hover: rgba(255, 255, 255, 0.07);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-border-subtle: rgba(255, 255, 255, 0.05);
+
+  /* Accent gradient endpoints */
+  --accent-from: #6366f1; /* indigo-500 */
+  --accent-to: #22d3ee;   /* cyan-400 */
+  --accent-link: #8b7cf6; /* soft violet for links/mentions */
+
+  /* Status colors with glow potential */
+  --status-online: #2dd4bf;
+  --status-dnd: #fb7185;
+  --status-idle: #fbbf24;
+
+  /* Font family */
+  --font-display: var(--font-sora), 'Sora', system-ui, sans-serif;
+}
+
+/* ── SVG Noise Texture Overlay ── */
+.aurora-noise::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* ── Glassmorphism Panel ── */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+}
+
+.glass-panel-hover:hover {
+  background: var(--glass-bg-hover);
+}
+
+/* ── Glow Shadow on Active Elements ── */
+.glow-active {
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.35),
+              0 0 60px rgba(99, 102, 241, 0.10);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.30),
+              0 0 40px rgba(34, 211, 238, 0.08);
+}
+
+/* ── Gradient Accent Text ── */
+.accent-gradient-text {
+  background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Avatar Gradient Ring ── */
+.avatar-ring-online {
+  box-shadow: 0 0 0 2px var(--aurora-via),
+              0 0 0 3.5px var(--status-online),
+              0 0 10px rgba(45, 212, 191, 0.25);
+}
+.avatar-ring-dnd {
+  box-shadow: 0 0 0 2px var(--aurora-via),
+              0 0 0 3.5px var(--status-dnd),
+              0 0 10px rgba(251, 113, 133, 0.25);
+}
+.avatar-ring-idle {
+  box-shadow: 0 0 0 2px var(--aurora-via),
+              0 0 0 3.5px var(--status-idle),
+              0 0 10px rgba(251, 191, 36, 0.25);
+}
+.avatar-ring-offline {
+  box-shadow: 0 0 0 2px var(--aurora-via),
+              0 0 0 3.5px rgba(255,255,255,0.15);
+}
+.avatar-ring-accent {
+  box-shadow: 0 0 0 2px var(--aurora-via),
+              0 0 0 3px var(--accent-from),
+              0 0 0 3.5px var(--accent-to);
+}
+
+/* ── Voice Pulse Animation ── */
+@keyframes voice-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(34, 211, 238, 0.20);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.45),
+                0 0 40px rgba(34, 211, 238, 0.10);
+  }
+}
+
+.voice-pulse {
+  animation: voice-pulse 2.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-pulse {
+    animation: none;
+  }
+}
+
+/* ── Aurora Gradient Background ── */
+.aurora-bg {
+  background: linear-gradient(135deg, var(--aurora-from), var(--aurora-via), var(--aurora-to));
+}
+
+/* ── Display Font ── */
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* ── Subtle Divider ── */
+.aurora-divider {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  height: 1px;
 }

@@ -34,7 +34,7 @@ const INITIAL_LOUNGES: VoiceLounge[] = [
 ];
 
 export function GroupVoiceLounges() {
-  const [lounges, setLounges] = useState<VoiceLounge[]>(INITIAL_LOUNGES);
+  const [lounges] = useState<VoiceLounge[]>(INITIAL_LOUNGES);
   const [activeLoungeId, setActiveLoungeId] = useState<string | null>('lounge-1');
   const [isMuted, setIsMuted] = useState(false);
 
@@ -47,14 +47,14 @@ export function GroupVoiceLounges() {
   };
 
   return (
-    <div className="flex-1 bg-zinc-950/60 backdrop-blur-xl p-6 overflow-y-auto no-scrollbar space-y-6">
+    <div className="flex-1 p-6 overflow-y-auto no-scrollbar space-y-6">
       {/* Header */}
-      <div className="border-b border-zinc-800/80 pb-4">
-        <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-          <Volume2 className="w-5 h-5 text-emerald-400" />
+      <div className="aurora-divider pb-4 border-b-0">
+        <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2 font-display">
+          <Volume2 className="w-5 h-5 text-cyan-400" />
           Голосові кімнати спільноти
         </h3>
-        <p className="text-xs text-zinc-400 mt-0.5">
+        <p className="text-xs text-white/50 mt-0.5">
           Приєднуйтеся до голосового спілкування в реальному часі без необхідності здійснювати дзвінок.
         </p>
       </div>
@@ -67,28 +67,29 @@ export function GroupVoiceLounges() {
           return (
             <div 
               key={lounge.id} 
-              className={`bg-zinc-900/80 p-5 rounded-2xl border transition-all shadow-xl space-y-4 ${
+              className={`glass-panel p-5 rounded-3xl transition-all shadow-xl space-y-4 ${
                 isConnected 
-                  ? 'border-emerald-500/50 bg-emerald-950/10' 
-                  : 'border-zinc-800/80 hover:border-zinc-700'
+                  ? 'glow-cyan bg-white/[0.07]' 
+                  : 'hover:bg-white/[0.06]'
               }`}
+              style={isConnected ? { border: '1px solid rgba(34,211,238,0.3)' } : {}}
             >
               {/* Room Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className={`p-2 rounded-xl ${isConnected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-400'}`}>
+                  <div className={`p-2 rounded-2xl ${isConnected ? 'bg-cyan-400/20 text-cyan-400 voice-pulse' : 'glass-panel text-white/40'}`}>
                     <Volume2 className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2 font-display">
                       {lounge.name}
                       {lounge.isLive && (
-                        <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-md flex items-center gap-1 font-mono">
+                        <span className="text-[10px] bg-cyan-400/10 text-cyan-400 border border-cyan-400/30 px-1.5 py-0.5 rounded-md flex items-center gap-1 font-mono">
                           <Radio className="w-3 h-3 animate-pulse" /> LIVE
                         </span>
                       )}
                     </h4>
-                    <p className="text-xs text-zinc-400 flex items-center gap-1 mt-0.5">
+                    <p className="text-xs text-white/40 flex items-center gap-1 mt-0.5">
                       <Users className="w-3.5 h-3.5" />
                       {lounge.users.length} учасників
                     </p>
@@ -97,10 +98,10 @@ export function GroupVoiceLounges() {
 
                 <Button
                   onClick={() => handleToggleJoin(lounge.id)}
-                  className={`rounded-xl text-xs font-semibold px-4 h-9 shadow-md transition-all ${
+                  className={`rounded-xl text-xs font-semibold px-4 h-9 shadow-md transition-all font-display border-0 ${
                     isConnected 
-                      ? 'bg-red-600 hover:bg-red-500 text-white' 
-                      : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                      ? 'bg-[var(--status-dnd)] hover:bg-[var(--status-dnd)]/80 text-white' 
+                      : 'bg-gradient-to-r from-indigo-500 to-cyan-400 hover:from-indigo-400 hover:to-cyan-300 text-white glow-active'
                   }`}
                 >
                   {isConnected ? 'Залишити' : 'Приєднатися'}
@@ -109,50 +110,51 @@ export function GroupVoiceLounges() {
 
               {/* Connected Users list in this room */}
               {lounge.users.length > 0 ? (
-                <div className="bg-zinc-950/80 p-3 rounded-xl border border-zinc-800/80 space-y-2">
+                <div className="glass-panel p-3 rounded-2xl space-y-2">
                   {lounge.users.map((usr) => (
                     <div key={usr.id} className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <img 
                           src={usr.avatar} 
                           alt={usr.name} 
-                          className={`w-7 h-7 rounded-full object-cover border ${usr.isSpeaking ? 'border-emerald-400 ring-2 ring-emerald-400/30' : 'border-zinc-700'}`} 
+                          className={`w-7 h-7 rounded-full object-cover ${usr.isSpeaking ? 'avatar-ring-online' : 'avatar-ring-offline'}`} 
                         />
-                        <span className="text-xs font-medium text-zinc-200">{usr.name}</span>
+                        <span className="text-xs font-medium text-white/80 font-display">{usr.name}</span>
                       </div>
 
                       {usr.isSpeaking ? (
-                        <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-mono">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                        <span className="text-[10px] text-cyan-400 flex items-center gap-1 font-mono">
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
                           Говорить...
                         </span>
                       ) : (
-                        <Mic className="w-3.5 h-3.5 text-zinc-500" />
+                        <Mic className="w-3.5 h-3.5 text-white/30" />
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="bg-zinc-950/40 p-4 rounded-xl border border-zinc-800/50 text-center text-xs text-zinc-500">
+                <div className="glass-panel p-4 rounded-2xl text-center text-xs text-white/30">
                   Кімната порожня. Будьте першим, хто увійшов!
                 </div>
               )}
 
               {/* Active controls if connected to this room */}
               {isConnected && (
-                <div className="pt-2 border-t border-zinc-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-display">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setIsMuted(!isMuted)}
-                      className={`rounded-xl text-xs h-8 border-zinc-800 ${isMuted ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-zinc-900 text-zinc-300'}`}
+                      className={`rounded-xl text-xs h-8 border-0 ${isMuted ? 'bg-[var(--status-dnd)]/20 text-[var(--status-dnd)]' : 'glass-panel text-white/70'}`}
+                      style={isMuted ? { border: '1px solid rgba(251,113,133,0.3)' } : { border: '1px solid rgba(255,255,255,0.1)' }}
                     >
                       {isMuted ? <MicOff className="w-3.5 h-3.5 mr-1.5" /> : <Mic className="w-3.5 h-3.5 mr-1.5" />}
                       {isMuted ? 'Заглушено' : 'Мікрофон вмик'}
                     </Button>
                   </div>
-                  <span className="text-[11px] font-mono text-emerald-400">Якість: 48kHz HD</span>
+                  <span className="text-[11px] font-mono text-cyan-400">Якість: 48kHz HD</span>
                 </div>
               )}
             </div>
