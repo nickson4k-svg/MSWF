@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Users, Plus } from 'lucide-react';
 import { Server, Message, Member } from './types';
 import { ServerRail } from './ServerRail';
 import { ChannelSidebar } from './ChannelSidebar';
@@ -72,8 +73,6 @@ const MOCK_MEMBERS: Member[] = [
   }
 ];
 
-const INITIAL_SERVERS: Server[] = [];
-
 const INITIAL_MESSAGES: Message[] = [
   {
     id: 'm1',
@@ -105,28 +104,136 @@ const INITIAL_MESSAGES: Message[] = [
 
 export function CommunityLayout() {
   const router = useRouter();
-  const [servers, setServers] = useState<Server[]>(INITIAL_SERVERS);
-  const [activeServerId, setActiveServerId] = useState<string>('srv-1');
-  const [activeChannelId, setActiveChannelId] = useState<string>('ch-1');
+  const [servers, setServers] = useState<Server[]>([]);
+  const [activeServerId, setActiveServerId] = useState<string>('');
+  const [activeChannelId, setActiveChannelId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<GroupTab>('chat');
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [showMembersPanel, setShowMembersPanel] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
 
+  // Load custom groups from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('nexus_custom_groups');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const formattedServers: Server[] = parsed.map((item: Partial<Server> & { avatar?: string }) => {
+              if (item.channels) return item as Server;
+              const groupName = item.name || 'Спільнота';
+              return {
+                id: item.id || `srv-${Date.now()}`,
+                name: groupName,
+                initials: groupName.substring(0, 2).toUpperCase(),
+                iconUrl: item.avatar || item.iconUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(groupName)}`,
+                channels: {
+                  text: [
+                    { id: `ch-${item.id || Date.now()}-1`, type: 'text', name: 'загальний' },
+                    { id: `ch-${item.id || Date.now()}-2`, type: 'text', name: 'флуд' }
+                  ],
+                  voice: [
+                    { id: `ch-${item.id || Date.now()}-3`, type: 'voice', name: 'Голосовий 1' }
+                  ]
+                }
+              };
+            });
+
+            setServers(formattedServers);
+
+            const savedActiveId = localStorage.getItem('nexus_active_group_id');
+            const targetServer = formattedServers.find(s => s.id === savedActiveId) || formattedServers[0];
+            if (targetServer) {
+              setActiveServerId(targetServer.id);
+              if (targetServer.channels.text.length > 0) {
+                setActiveChannelId(targetServer.channels.text[0].id);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Failed to load groups from localStorage', e);
+        }
+      }
+    }
+  }, []);
+
+  const saveServersToStorage = (updated: Server[]) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nexus_custom_groups', JSON.stringify(updated));
+    }
+  };
+
   const activeServer = servers.find(s => s.id === activeServerId) || servers[0];
   
   if (!activeServer) {
     return (
-      <div className="flex h-screen w-screen bg-zinc-950 text-white items-center justify-center flex-col p-4">
-        <h2 className="text-xl font-bold mb-2">У вас немає активних груп</h2>
-        <p className="text-sm text-zinc-400 mb-4">Створіть нову групу або приєднайтеся за посиланням</p>
-        <button 
-          onClick={() => router.push('/')}
-          className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-all"
-        >
-          Повернутися на головну
-        </button>
+      <div className="flex h-screen w-screen bg-zinc-950 text-white items-center justify-center flex-col p-4 relative overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[140px] pointer-events-none" />
+
+        <div className="bg-zinc-900/80 p-8 rounded-3xl border border-zinc-800/80 max-w-md w-full text-center space-y-4 shadow-2xl backdrop-blur-xl z-10 animate-in fade-in duration-200">
+          <div className="w-16 h-16 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center mx-auto shadow-inner">
+            <Users className="w-8 h-8" />
+          </div>
+
+          <h2 className="text-2xl font-bold tracking-tight text-white">У вас немає активних груп</h2>
+          <p className="text-sm text-zinc-400">
+            Створіть свою першу спільноту або груповий чат для спілкування з друзями.
+          </p>
+
+          <div className="flex flex-col gap-2.5 pt-2">
+            <button 
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl text-sm font-semibold shadow-lg shadow-blue-900/30 transition-all flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Створити нову групу
+            </button>
+
+            <button 
+              type="button"
+              onClick={() => router.push('/')}
+              className="w-full border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-300 py-3 rounded-xl text-sm font-medium transition-all"
+            >
+              Повернутися на головну
+            </button>
+          </div>
+        </div>
+
+        <CreateServerModal 
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onCreate={(name, iconUrl) => {
+            const newGroupId = `custom-grp-${Date.now()}`;
+            const newServer: Server = {
+              id: newGroupId,
+              name,
+              initials: name.substring(0, 2).toUpperCase(),
+              iconUrl: iconUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(name)}`,
+              channels: {
+                text: [
+                  { id: `ch-${Date.now()}-1`, type: 'text', name: 'загальний' },
+                  { id: `ch-${Date.now()}-2`, type: 'text', name: 'флуд' }
+                ],
+                voice: [
+                  { id: `ch-${Date.now()}-3`, type: 'voice', name: 'Голосовий 1' }
+                ]
+              }
+            };
+            const updated = [newServer];
+            setServers(updated);
+            setActiveServerId(newGroupId);
+            setActiveChannelId(newServer.channels.text[0].id);
+            saveServersToStorage(updated);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('nexus_active_group_id', newGroupId);
+            }
+            setIsCreateModalOpen(false);
+          }}
+        />
       </div>
     );
   }
@@ -151,8 +258,9 @@ export function CommunityLayout() {
   };
 
   const handleCreateServer = (name: string, iconUrl?: string) => {
+    const newGroupId = `custom-grp-${Date.now()}`;
     const newServer: Server = {
-      id: `srv-${Date.now()}`,
+      id: newGroupId,
       name,
       initials: name.substring(0, 2).toUpperCase(),
       iconUrl: iconUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(name)}`,
@@ -166,9 +274,14 @@ export function CommunityLayout() {
         ]
       }
     };
-    setServers(prev => [...prev, newServer]);
+    const updated = [...servers, newServer];
+    setServers(updated);
     setActiveServerId(newServer.id);
     setActiveChannelId(newServer.channels.text[0].id);
+    saveServersToStorage(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nexus_active_group_id', newServer.id);
+    }
   };
 
   const handleConfirmLeaveGroup = () => {
@@ -176,13 +289,20 @@ export function CommunityLayout() {
     const remaining = servers.filter(s => s.id !== targetId);
     setServers(remaining);
     setIsLeaveModalOpen(false);
+    saveServersToStorage(remaining);
 
     if (remaining.length > 0) {
       setActiveServerId(remaining[0].id);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('nexus_active_group_id', remaining[0].id);
+      }
       if (remaining[0].channels.text.length > 0) {
         setActiveChannelId(remaining[0].channels.text[0].id);
       }
     } else {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('nexus_active_group_id');
+      }
       router.push('/');
     }
   };

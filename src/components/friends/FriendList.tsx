@@ -289,8 +289,9 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
   }, [currentUser, router]);
 
   const handleCreateGroup = (name: string, iconUrl?: string) => {
+    const newGroupId = `custom-grp-${Date.now()}`;
     const newGroup: GroupItem = {
-      id: `custom-grp-${Date.now()}`,
+      id: newGroupId,
       name,
       avatar: iconUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(name)}`,
       membersCount: 1
@@ -299,8 +300,8 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
     setGroups(prev => {
       const updated = [newGroup, ...prev];
       if (typeof window !== 'undefined') {
-        const customOnly = updated.filter(g => g.id.startsWith('custom-grp-'));
-        localStorage.setItem('nexus_custom_groups', JSON.stringify(customOnly));
+        localStorage.setItem('nexus_custom_groups', JSON.stringify(updated));
+        localStorage.setItem('nexus_active_group_id', newGroupId);
       }
       return updated;
     });
@@ -308,7 +309,10 @@ export const FriendList = memo(function FriendList({ currentUser }: { currentUse
     router.push('/community');
   };
 
-  const handleOpenGroup = (_group: GroupItem) => {
+  const handleOpenGroup = (group: GroupItem) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('nexus_active_group_id', group.id);
+    }
     router.push('/community');
   };
 
