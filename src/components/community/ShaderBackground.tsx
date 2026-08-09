@@ -130,12 +130,12 @@ export function ShaderBackground({ preset }: ShaderBackgroundProps) {
         }
 
       } else if (preset === 'stars') {
-        // --- 4. HYPER SPACE STARFIELD ---
+        // --- 4. HYPER SPACE STARFIELD (Slow Calm Drift) ---
         ctx.fillStyle = '#060818';
         ctx.fillRect(0, 0, renderWidth, renderHeight);
 
         stars.forEach((star) => {
-          star.z -= 1.2;
+          star.z -= 0.15;
           if (star.z <= 0) {
             star.z = renderWidth;
             star.x = Math.random() * renderWidth;

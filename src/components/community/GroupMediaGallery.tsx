@@ -21,7 +21,7 @@ const MOCK_MEDIA: MediaItem[] = [
     title: 'Minecraft TNT Base Meme',
     url: '/meme.png',
     thumbnailUrl: '/meme.png',
-    sender: 'NicoNico',
+    sender: 'NK2',
     date: '05.08.2026',
     size: '777 KB'
   },
@@ -31,7 +31,7 @@ const MOCK_MEDIA: MediaItem[] = [
     title: 'ВИШНІ Status///REMAKE (Cyberkozaz Synthwave)',
     url: 'https://www.youtube.com/watch?v=7pyMb3MgU_E',
     thumbnailUrl: '/youtube_thumb.png',
-    sender: 'Габа Шен Пуер',
+    sender: 'NK2',
     date: '05.08.2026'
   },
   {
@@ -39,7 +39,7 @@ const MOCK_MEDIA: MediaItem[] = [
     type: 'file',
     title: 'Project_Architecture_v2.pdf',
     url: '#',
-    sender: 'lunati',
+    sender: 'NK2',
     date: '04.08.2026',
     size: '2.4 MB'
   },
@@ -48,7 +48,8 @@ const MOCK_MEDIA: MediaItem[] = [
     type: 'image',
     title: 'Nexus_UI_Mockup.png',
     url: 'https://api.dicebear.com/7.x/identicon/svg?seed=NexusUI',
-    sender: 'rxqzzz',
+    thumbnailUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=NexusUI',
+    sender: 'NK2',
     date: '03.08.2026',
     size: '1.1 MB'
   }

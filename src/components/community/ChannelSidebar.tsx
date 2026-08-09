@@ -112,7 +112,10 @@ export function ChannelSidebar({ server, activeChannelId, onSelectChannel, onOpe
             return (
               <div key={ch.id} className="space-y-1">
                 <button
-                  onClick={() => onSelectChannel(ch.id)}
+                  onClick={() => {
+                    onSelectChannel(ch.id);
+                    setInVoiceCall(true);
+                  }}
                   className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-white/40 hover:bg-white/[0.06] hover:text-white/80 transition-colors text-xs font-medium group"
                 >
                   <div className="flex items-center gap-2 truncate">
@@ -127,36 +130,27 @@ export function ChannelSidebar({ server, activeChannelId, onSelectChannel, onOpe
                 </button>
 
                 {/* Connected Voice Users */}
-                {ch.connectedUsers && ch.connectedUsers.length > 0 && (
+                {inVoiceCall && activeChannelId === ch.id && (
                   <div className="pl-5 space-y-1">
-                    <button className="flex items-center gap-1 text-[10px] text-white/25 hover:text-white/60 py-0.5 px-1 rounded transition-colors">
-                      <span className="truncate">Обрати статус каналу</span>
-                      <Edit2 className="w-2.5 h-2.5 ml-0.5" />
-                    </button>
-
-                    {ch.connectedUsers.map((usr) => (
-                      <div 
-                        key={usr.id} 
-                        className="flex items-center justify-between px-2 py-1 rounded-lg hover:bg-white/[0.04] transition-colors group cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          <img 
-                            src={usr.avatarUrl} 
-                            alt={usr.name} 
-                            className="w-5 h-5 rounded-md object-cover avatar-ring-online" 
-                          />
-                          <span className="text-xs text-white/80 font-medium truncate">
-                            {usr.name}
-                          </span>
-                        </div>
-                        
-                        {usr.customStatus && (
-                          <span className="text-[9px] bg-white/[0.06] text-cyan-400 font-bold px-1 py-0.5 rounded" style={{ border: '1px solid rgba(34,211,238,0.2)' }}>
-                            {usr.customStatus}
-                          </span>
-                        )}
+                    <div 
+                      className="flex items-center justify-between px-2 py-1 rounded-lg bg-white/[0.04] transition-colors group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <img 
+                          src={currentUser.avatarUrl} 
+                          alt={currentUser.name} 
+                          className="w-5 h-5 rounded-md object-cover avatar-ring-online" 
+                        />
+                        <span className="text-xs text-cyan-300 font-semibold truncate font-display">
+                          {currentUser.name}
+                        </span>
                       </div>
-                    ))}
+                      
+                      <span className="text-[9px] bg-cyan-400/20 text-cyan-400 font-bold px-1.5 py-0.5 rounded font-mono flex items-center gap-1">
+                        <span className="w-1 h-1 rounded-full bg-cyan-400 animate-ping" />
+                        LIVE
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

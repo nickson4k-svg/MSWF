@@ -30,10 +30,19 @@ const INITIAL_LOUNGES: VoiceLounge[] = [
   }
 ];
 
-export function GroupVoiceLounges() {
+interface GroupVoiceLoungesProps {
+  currentUser?: { name: string; avatarUrl: string };
+}
+
+export function GroupVoiceLounges({ currentUser }: GroupVoiceLoungesProps) {
   const [lounges] = useState<VoiceLounge[]>(INITIAL_LOUNGES);
   const [activeLoungeId, setActiveLoungeId] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+
+  const userProfile = currentUser || {
+    name: 'NK2',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NK2'
+  };
 
   const handleToggleJoin = (loungeId: string) => {
     if (activeLoungeId === loungeId) {
@@ -61,7 +70,7 @@ export function GroupVoiceLounges() {
         {lounges.map((lounge) => {
           const isConnected = activeLoungeId === lounge.id;
           const displayUsers = isConnected 
-            ? [...lounge.users, { id: 'u-me', name: 'NicoNico', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NicoNico', isSpeaking: !isMuted }]
+            ? [...lounge.users, { id: 'u-me', name: userProfile.name, avatar: userProfile.avatarUrl, isSpeaking: !isMuted }]
             : lounge.users;
 
           return (

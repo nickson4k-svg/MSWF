@@ -83,7 +83,7 @@ export function ChatArea({ channel, messages, onSendMessage, toggleMembersPanel,
             <div key={msg.id} className={`group flex gap-3.5 hover:bg-white/[0.03] -mx-4 px-4 py-1.5 rounded-xl transition-colors ${!isSameAuthor ? 'mt-3' : ''}`}>
               {!isSameAuthor ? (
                 <img 
-                  src={msg.avatarUrl} 
+                  src={msg.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(msg.author || 'User')}`} 
                   alt={msg.author} 
                   className="w-9 h-9 rounded-xl object-cover flex-shrink-0 mt-0.5 avatar-ring-accent" 
                 />

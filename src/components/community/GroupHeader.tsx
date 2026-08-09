@@ -31,7 +31,7 @@ export function GroupHeader({
   activeTab,
   onTabChange,
   onOpenLeaveModal,
-  shaderPreset = 'aurora',
+  shaderPreset = 'stars',
   onShaderChange
 }: GroupHeaderProps) {
   const [copied, setCopied] = useState(false);

@@ -45,14 +45,33 @@ export function CommunityLayout() {
   const [activeServerId, setActiveServerId] = useState<string>('');
   const [activeChannelId, setActiveChannelId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<GroupTab>('chat');
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [channelMessages, setChannelMessages] = useState<Record<string, Message[]>>({});
   const [members, setMembers] = useState<Member[]>(REAL_MEMBERS);
+  const [currentUser, setCurrentUser] = useState({
+    name: 'NK2',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NK2',
+    status: 'online' as const
+  });
   const [showMembersPanel, setShowMembersPanel] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCreateChannelModalOpen, setIsCreateChannelModalOpen] = useState(false);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
-  const [shaderPreset, setShaderPreset] = useState<ShaderPreset>('aurora');
+  const [shaderPreset, setShaderPreset] = useState<ShaderPreset>('stars');
+
+  // Fetch logged in user profile from /api/auth/me on mount
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.username) {
+          const name = data.username;
+          const avatarUrl = data.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
+          setCurrentUser({ name, avatarUrl, status: 'online' });
+          setMembers([{ id: 'u-me', name, avatarUrl, status: 'online', customStatus: 'В мережі' }]);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Load custom groups & shader preset from localStorage on mount
   useEffect(() => {
@@ -76,11 +95,10 @@ export function CommunityLayout() {
                 iconUrl: item.avatar || item.iconUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(groupName)}`,
                 channels: {
                   text: [
-                    { id: `ch-${item.id || Date.now()}-1`, type: 'text', name: 'загальний' },
-                    { id: `ch-${item.id || Date.now()}-2`, type: 'text', name: 'флуд' }
+                    { id: `ch-${item.id || Date.now()}-1`, type: 'text', name: 'загальний' }
                   ],
                   voice: [
-                    { id: `ch-${item.id || Date.now()}-3`, type: 'voice', name: 'Голосовий 1' }
+                    { id: `ch-${item.id || Date.now()}-2`, type: 'voice', name: 'Голосовий 1' }
                   ]
                 }
               };
@@ -190,8 +208,8 @@ export function CommunityLayout() {
   const currentChannelMessages = channelMessages[activeChannelId] || [
     {
       id: `welcome-${activeChannelId}`,
-      author: 'NicoNico',
-      avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NicoNico',
+      author: currentUser.name,
+      avatarUrl: currentUser.avatarUrl,
       nameColor: '#4caf50',
       timestamp: 'Сьогодні',
       type: 'text',
@@ -202,8 +220,8 @@ export function CommunityLayout() {
   const handleSendMessage = (text: string) => {
     const newMsg: Message = {
       id: `msg-${Date.now()}`,
-      author: 'NicoNico',
-      avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NicoNico',
+      author: currentUser.name,
+      avatarUrl: currentUser.avatarUrl,
       nameColor: '#4caf50',
       timestamp: new Date().toLocaleTimeString('uk-UA', { 
         hour: '2-digit', minute: '2-digit' 
@@ -249,11 +267,10 @@ export function CommunityLayout() {
       iconUrl: iconUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(name)}`,
       channels: {
         text: [
-          { id: `ch-${Date.now()}-1`, type: 'text', name: 'загальний' },
-          { id: `ch-${Date.now()}-2`, type: 'text', name: 'флуд' }
+          { id: `ch-${Date.now()}-1`, type: 'text', name: 'загальний' }
         ],
         voice: [
-          { id: `ch-${Date.now()}-3`, type: 'voice', name: 'Голосовий 1' }
+          { id: `ch-${Date.now()}-2`, type: 'voice', name: 'Голосовий 1' }
         ]
       }
     };
@@ -352,11 +369,7 @@ export function CommunityLayout() {
                 activeChannelId={activeChannelId}
                 onSelectChannel={(chId) => setActiveChannelId(chId)}
                 onOpenCreateChannelModal={() => setIsCreateChannelModalOpen(true)}
-                currentUser={{
-                  name: 'NicoNico',
-                  avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=NicoNico',
-                  status: 'online'
-                }}
+                currentUser={currentUser}
               />
             </div>
 
@@ -388,7 +401,7 @@ export function CommunityLayout() {
 
         {activeTab === 'voice' && (
           <div className="flex-1 min-w-0 rounded-3xl overflow-hidden glass-panel border-white/10 shadow-2xl flex flex-col">
-            <GroupVoiceLounges />
+            <GroupVoiceLounges currentUser={currentUser} />
           </div>
         )}
 
